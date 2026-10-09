@@ -1,0 +1,34 @@
+package com.example.demo.controller;
+
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+import com.example.demo.dto.DashboardResponseDTO;
+import com.example.demo.service.DashboardService;
+
+@RestController
+@RequestMapping("/api/dashboard")
+public class DashboardController {
+
+    private final DashboardService dashboardService;
+
+    public DashboardController(DashboardService dashboardService) {
+        this.dashboardService = dashboardService;
+    }
+
+    // Admin Dashboard
+    @GetMapping("/admin")
+    public DashboardResponseDTO getAdminDashboard() {
+        return dashboardService.getAdminDashboard();
+    }
+
+    // Sales Dashboard
+    @GetMapping("/sales/{userId}")
+    public DashboardResponseDTO getSalesDashboard(
+            @PathVariable Long userId) {
+
+        return dashboardService.getSalesDashboard(userId);
+    }
+}

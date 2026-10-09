@@ -2,8 +2,10 @@ package com.example.demo.dto;
 
 import com.example.demo.entity.LeadSource;
 
-public class LeadRequestDTO {
+import jakarta.validation.constraints.NotBlank;
 
+public class LeadRequestDTO {
+	@NotBlank(message = "First name is required")
     private String firstName;
     private String lastName;
     private String companyName;

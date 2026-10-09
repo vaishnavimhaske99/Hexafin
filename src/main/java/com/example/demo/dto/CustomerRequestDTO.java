@@ -14,7 +14,9 @@ public class CustomerRequestDTO {
     private String state;
     private String country;
     private String pincode;
-
+    private String loanType;
+    private String loanPurpose;
+    
     public CustomerRequestDTO() {
     }
 
@@ -105,4 +107,20 @@ public class CustomerRequestDTO {
     public void setPincode(String pincode) {
         this.pincode = pincode;
     }
+
+	public String getLoanType() {
+		return loanType;
+	}
+
+	public void setLoanType(String loanType) {
+		this.loanType = loanType;
+	}
+
+	public String getLoanPurpose() {
+		return loanPurpose;
+	}
+
+	public void setLoanPurpose(String loanPurpose) {
+		this.loanPurpose = loanPurpose;
+	}
 }

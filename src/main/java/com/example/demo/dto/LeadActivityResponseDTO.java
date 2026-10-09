@@ -7,23 +7,15 @@ import com.example.demo.entity.ActivityType;
 public class LeadActivityResponseDTO {
 
     private Long id;
-
     private Long leadId;
-
     private ActivityType type;
-
     private LocalDateTime activityDateTime;
-
     private String description;
 
     private Long createdById;
-
     private String createdByName;
 
     private LocalDateTime createdAt;
-
-    public LeadActivityResponseDTO() {
-    }
 
     public Long getId() {
         return id;

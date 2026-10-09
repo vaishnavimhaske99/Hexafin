@@ -4,19 +4,22 @@ import com.example.demo.dto.LeadActivityRequestDTO;
 import com.example.demo.dto.LeadActivityResponseDTO;
 import com.example.demo.entity.Lead;
 import com.example.demo.entity.LeadActivity;
+import com.example.demo.entity.User;
 
 public class LeadActivityMapper {
 
     public static LeadActivity toEntity(
-            LeadActivityRequestDTO dto,
+            LeadActivityRequestDTO request,
             Lead lead) {
 
         LeadActivity activity = new LeadActivity();
 
         activity.setLead(lead);
-        activity.setType(dto.getType());
-        activity.setActivityDateTime(dto.getActivityDateTime());
-        activity.setDescription(dto.getDescription());
+        activity.setType(request.getType());
+        activity.setActivityDateTime(
+                request.getActivityDateTime());
+        activity.setDescription(
+                request.getDescription());
 
         return activity;
     }
@@ -24,43 +27,30 @@ public class LeadActivityMapper {
     public static LeadActivityResponseDTO toResponseDTO(
             LeadActivity activity) {
 
-        LeadActivityResponseDTO dto =
+        LeadActivityResponseDTO response =
                 new LeadActivityResponseDTO();
 
-        dto.setId(activity.getId());
-
-        if (activity.getLead() != null) {
-            dto.setLeadId(activity.getLead().getId());
-        }
-
-        dto.setType(activity.getType());
-        dto.setActivityDateTime(
+        response.setId(activity.getId());
+        response.setLeadId(activity.getLead().getId());
+        response.setType(activity.getType());
+        response.setActivityDateTime(
                 activity.getActivityDateTime());
+        response.setDescription(
+                activity.getDescription());
+        response.setCreatedAt(
+                activity.getCreatedAt());
 
-        dto.setDescription(activity.getDescription());
+        User createdBy = activity.getCreatedBy();
 
-        if (activity.getCreatedBy() != null) {
+        if (createdBy != null) {
+            response.setCreatedById(createdBy.getId());
 
-            dto.setCreatedById(
-                    activity.getCreatedBy().getId());
-
-            String firstName =
-                    activity.getCreatedBy().getFirstName();
-
-            String lastName =
-                    activity.getCreatedBy().getLastName();
-
-            String fullName = firstName;
-
-            if (lastName != null && !lastName.isBlank()) {
-                fullName = firstName + " " + lastName;
-            }
-
-            dto.setCreatedByName(fullName);
+            response.setCreatedByName(
+                    createdBy.getFirstName()
+                    + " "
+                    + createdBy.getLastName());
         }
 
-        dto.setCreatedAt(activity.getCreatedAt());
-
-        return dto;
+        return response;
     }
 }

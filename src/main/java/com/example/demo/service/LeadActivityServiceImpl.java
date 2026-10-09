@@ -59,12 +59,13 @@ public class LeadActivityServiceImpl
                         new RuntimeException(
                                 "Lead not found with id: " + leadId));
 
-        return leadActivityRepository.findByLeadId(leadId)
+        return leadActivityRepository
+                .findByLeadIdOrderByActivityDateTimeDesc(leadId)
                 .stream()
                 .map(LeadActivityMapper::toResponseDTO)
                 .toList();
-    }
-
+        }
+    
     @Override
     public LeadActivityResponseDTO getActivityById(Long id) {
 

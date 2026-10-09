@@ -20,7 +20,8 @@ public class CustomerResponseDTO {
     private String pincode;
 
     private Long sourceLeadId;
-
+    private String loanType;
+    private String loanPurpose;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
@@ -146,4 +147,20 @@ public class CustomerResponseDTO {
     public void setUpdatedAt(LocalDateTime updatedAt) {
         this.updatedAt = updatedAt;
     }
+
+	public String getLoanType() {
+		return loanType;
+	}
+
+	public void setLoanType(String loanType) {
+		this.loanType = loanType;
+	}
+
+	public String getLoanPurpose() {
+		return loanPurpose;
+	}
+
+	public void setLoanPurpose(String loanPurpose) {
+		this.loanPurpose = loanPurpose;
+	}
 }

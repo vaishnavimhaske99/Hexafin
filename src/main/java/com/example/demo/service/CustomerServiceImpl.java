@@ -136,6 +136,7 @@ public class CustomerServiceImpl implements CustomerService {
         customer.setCountry(request.getCountry());
         customer.setPincode(request.getPincode());
 
+        
         // 3. Updated time
         customer.setUpdatedAt(LocalDateTime.now());
 

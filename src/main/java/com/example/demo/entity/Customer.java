@@ -32,7 +32,9 @@ public class Customer {
 
     @Column(name = "address_line2")
     private String addressLine2;
+    private String loanType;
 
+    private String loanPurpose;
     private String city;
 
     private String state;
@@ -173,4 +175,20 @@ public class Customer {
     public void setUpdatedAt(LocalDateTime updatedAt) {
         this.updatedAt = updatedAt;
     }
+
+	public String getLoanType() {
+		return loanType;
+	}
+
+	public void setLoanType(String loanType) {
+		this.loanType = loanType;
+	}
+
+	public String getLoanPurpose() {
+		return loanPurpose;
+	}
+
+	public void setLoanPurpose(String loanPurpose) {
+		this.loanPurpose = loanPurpose;
+	}
 }

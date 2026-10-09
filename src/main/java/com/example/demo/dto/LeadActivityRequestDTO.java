@@ -6,13 +6,20 @@ import com.example.demo.entity.ActivityType;
 
 public class LeadActivityRequestDTO {
 
+    private Long leadId;
+
     private ActivityType type;
 
     private LocalDateTime activityDateTime;
 
     private String description;
 
-    public LeadActivityRequestDTO() {
+    public Long getLeadId() {
+        return leadId;
+    }
+
+    public void setLeadId(Long leadId) {
+        this.leadId = leadId;
     }
 
     public ActivityType getType() {
