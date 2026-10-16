@@ -1,12 +1,16 @@
+
 package com.example.demo.entity;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
+import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 
 @Entity
@@ -35,6 +39,12 @@ public class User {
     @Column(nullable = false)
     private String status = "ACTIVE";
 
+    // Role relationship with the roles table
+    @ManyToOne(fetch = FetchType.EAGER)
+    @JoinColumn(name = "role_id", nullable = false)
+    private Role roleEntity;
+
+    // Application-level role: ADMIN or SALES
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private UserRole role;
@@ -96,6 +106,14 @@ public class User {
 
     public void setStatus(String status) {
         this.status = status;
+    }
+
+    public Role getRoleEntity() {
+        return roleEntity;
+    }
+
+    public void setRoleEntity(Role roleEntity) {
+        this.roleEntity = roleEntity;
     }
 
     public UserRole getRole() {

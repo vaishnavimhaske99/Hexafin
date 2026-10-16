@@ -1,9 +1,11 @@
+
 package com.example.demo.security;
 
 import java.io.IOException;
 import java.util.Collections;
 
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
@@ -22,10 +24,9 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private final JwtService jwtService;
     private final UserRepository userRepository;
 
-  public JwtAuthenticationFilter(
+    public JwtAuthenticationFilter(
             JwtService jwtService,
             UserRepository userRepository) {
-
         this.jwtService = jwtService;
         this.userRepository = userRepository;
     }
@@ -42,30 +43,32 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
         String authHeader = request.getHeader("Authorization");
 
-        System.out.println("AUTH HEADER: " + authHeader);
+        System.out.println("AUTH HEADER PRESENT: "
+                + (authHeader != null && authHeader.startsWith("Bearer ")));
 
-        // JWT token नाही
+        // Token नसल्यास request पुढे जाऊ द्या.
+        // Protected endpoints साठी Spring Security authorization तपासेल.
         if (authHeader == null || !authHeader.startsWith("Bearer ")) {
-
-            System.out.println("NO BEARER TOKEN");
-
             filterChain.doFilter(request, response);
             return;
         }
 
-        String token = authHeader.substring(7);
+        String token = authHeader.substring(7).trim();
 
         try {
-
-            // Token मधून email काढणे
             String email = jwtService.extractEmail(token);
 
             System.out.println("JWT EMAIL: " + email);
 
-            if (email != null
-                    && SecurityContextHolder.getContext().getAuthentication() == null) {
+            if (email == null || email.isBlank()) {
+                System.out.println("JWT ERROR: Email not found in token");
+                SecurityContextHolder.clearContext();
+                filterChain.doFilter(request, response);
+                return;
+            }
 
-                // Database मधून user शोधणे
+            if (SecurityContextHolder.getContext().getAuthentication() == null) {
+
                 User user = userRepository.findByEmail(email)
                         .orElseThrow(() ->
                                 new RuntimeException("User not found"));
@@ -73,40 +76,42 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 System.out.println("JWT USER ID: " + user.getId());
                 System.out.println("JWT USER EMAIL: " + user.getEmail());
 
-                // Token valid आहे का?
-                boolean valid = jwtService.isTokenValid(
-                        token,
-                        user.getEmail()
-                );
+                boolean valid = jwtService.isTokenValid(token, user.getEmail());
 
                 System.out.println("JWT VALID: " + valid);
 
                 if (valid) {
-
                     UsernamePasswordAuthenticationToken authentication =
                             new UsernamePasswordAuthenticationToken(
                                     user,
                                     null,
-                                    Collections.emptyList()
+                                    Collections.singletonList(
+                                            new SimpleGrantedAuthority(
+                                                    "ROLE_" + user.getRole().name()
+                                            )
+                                    )
                             );
 
-                    // SecurityContext मध्ये authentication set करणे
-                    SecurityContextHolder
-                            .getContext()
+                    authentication.setDetails(
+                            new org.springframework.security.web.authentication.WebAuthenticationDetailsSource()
+                                    .buildDetails(request)
+                    );
+
+                    SecurityContextHolder.getContext()
                             .setAuthentication(authentication);
 
-                    System.out.println(
-                            "AUTHENTICATION SET: "
-                                    + SecurityContextHolder
-                                            .getContext()
-                                            .getAuthentication()
-                    );
+                    System.out.println("AUTHENTICATION SET: "
+                            + SecurityContextHolder.getContext()
+                                    .getAuthentication().getName());
+                } else {
+                    System.out.println("JWT ERROR: Token is invalid or expired");
+                    SecurityContextHolder.clearContext();
                 }
             }
 
         } catch (Exception e) {
-
             System.out.println("JWT ERROR: " + e.getMessage());
+            SecurityContextHolder.clearContext();
         }
 
         filterChain.doFilter(request, response);

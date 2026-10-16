@@ -1,12 +1,19 @@
+
 package com.example.demo.dto;
 
+import java.util.ArrayList;
+import java.util.List;
+
 import com.example.demo.entity.LeadSource;
+import com.example.demo.entity.LoanProductType;
 
 import jakarta.validation.constraints.NotBlank;
 
 public class LeadRequestDTO {
-	@NotBlank(message = "First name is required")
+
+    @NotBlank(message = "First name is required")
     private String firstName;
+
     private String lastName;
     private String companyName;
     private String email;
@@ -20,6 +27,10 @@ public class LeadRequestDTO {
     private String pincode;
 
     private LeadSource source;
+
+    private LoanProductType product;
+
+   
     private String description;
 
     public String getFirstName() {
@@ -116,6 +127,14 @@ public class LeadRequestDTO {
 
     public void setSource(LeadSource source) {
         this.source = source;
+    }
+
+    public LoanProductType getProduct() {
+        return product;
+    }
+
+    public void setProduct(LoanProductType product) {
+        this.product = product;
     }
 
     public String getDescription() {

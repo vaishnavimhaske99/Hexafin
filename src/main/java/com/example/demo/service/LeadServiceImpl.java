@@ -4,9 +4,11 @@ package com.example.demo.service;
 import java.time.LocalDateTime;
 import java.util.List;
 
+import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
+import org.springframework.web.server.ResponseStatusException;
 
 import com.example.demo.dto.AssignLeadRequestDTO;
 import com.example.demo.dto.LeadRequestDTO;
@@ -18,6 +20,11 @@ import com.example.demo.entity.UserRole;
 import com.example.demo.mapper.LeadMapper;
 import com.example.demo.repository.LeadRepository;
 import com.example.demo.repository.UserRepository;
+
+
+import org.springframework.http.HttpStatus;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
 
 @Service
 public class LeadServiceImpl implements LeadService {
@@ -40,28 +47,35 @@ public class LeadServiceImpl implements LeadService {
     // CREATE LEAD
     // =========================
 
+
     @Override
+    @Transactional
     public LeadResponseDTO createLead(LeadRequestDTO request) {
 
+        System.out.println("DTO product: " + request.getProduct());
+
         Lead lead = LeadMapper.toEntity(request);
+
+        System.out.println("Entity product: " + lead.getProduct());
 
         lead.setStatus(LeadStatus.NEW);
 
         LocalDateTime now = LocalDateTime.now();
-
         lead.setCreatedAt(now);
         lead.setUpdatedAt(now);
 
         Lead savedLead = leadRepository.save(lead);
 
+        System.out.println("Saved product: " + savedLead.getProduct());
+
         return LeadMapper.toResponseDTO(savedLead);
     }
-
     // =========================
     // GET ALL LEADS
     // =========================
 
     @Override
+    @Transactional(readOnly = true)
     public List<LeadResponseDTO> getAllLeads() {
 
         List<Lead> leads = leadRepository.findAll();
@@ -75,41 +89,21 @@ public class LeadServiceImpl implements LeadService {
     // GET LEAD BY ID
     // =========================
 
-    @Override
-    public LeadResponseDTO getLeadById(Long id) {
 
-        Lead lead = leadRepository.findById(id)
-                .orElseThrow(() ->
-                        new RuntimeException(
-                                "Lead not found with id: " + id));
 
-        Authentication authentication =
-                SecurityContextHolder.getContext().getAuthentication();
+@Override
+@Transactional(readOnly = true)
+public LeadResponseDTO getLeadById(Long id) {
 
-        User user = (User) authentication.getPrincipal();
+    Lead lead = leadRepository.findById(id)
+            .orElseThrow(() -> new ResponseStatusException(
+                    HttpStatus.NOT_FOUND,
+                    "Lead not found with id: " + id
+            ));
 
-        // ADMIN can view any lead
-        if (user.getRole() == UserRole.ADMIN) {
-            return LeadMapper.toResponseDTO(lead);
-        }
+    return LeadMapper.toResponseDTO(lead);
+}
 
-        // SALES can view only assigned leads
-        if (user.getRole() == UserRole.SALES) {
-
-            if (lead.getAssignedTo() == null ||
-                    !lead.getAssignedTo().getId().equals(user.getId())) {
-
-                throw new RuntimeException(
-                        "You are not authorized to view this lead");
-            }
-
-            return LeadMapper.toResponseDTO(lead);
-        }
-
-        // Other roles are not allowed
-        throw new RuntimeException(
-                "You are not authorized to view this lead");
-    }
 
     // =========================
     // UPDATE LEAD
@@ -174,6 +168,7 @@ public class LeadServiceImpl implements LeadService {
         lead.setPincode(request.getPincode());
 
         lead.setSource(request.getSource());
+        lead.setProduct(request.getProduct());
         lead.setDescription(request.getDescription());
 
         lead.setUpdatedAt(LocalDateTime.now());

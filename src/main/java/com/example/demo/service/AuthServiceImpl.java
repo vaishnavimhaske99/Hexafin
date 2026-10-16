@@ -1,7 +1,11 @@
+
 package com.example.demo.service;
+
+import java.util.Locale;
 
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import com.example.demo.dto.LoginRequestDTO;
 import com.example.demo.dto.LoginResponseDTO;
@@ -27,26 +31,47 @@ public class AuthServiceImpl implements AuthService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public LoginResponseDTO login(LoginRequestDTO request) {
 
-        User user = userRepository.findByEmail(request.getEmail())
+        if (request == null
+                || request.getEmail() == null
+                || request.getEmail().isBlank()
+                || request.getPassword() == null
+                || request.getPassword().isBlank()) {
+
+            throw new IllegalArgumentException(
+                    "Email and password are required.");
+        }
+
+        String email = request.getEmail()
+                .trim()
+                .toLowerCase(Locale.ROOT);
+
+        User user = userRepository.findByEmail(email)
                 .orElseThrow(() ->
                         new RuntimeException(
                                 "Invalid email or password"));
 
-        if (!passwordEncoder.matches(
-                request.getPassword(),
-                user.getPassword())) {
+        System.out.println("LOGIN USER FOUND: " + user.getEmail());
 
-            throw new RuntimeException(
-                    "Invalid email or password");
+        boolean passwordMatches = passwordEncoder.matches(
+                request.getPassword(),
+                user.getPassword()
+        );
+
+        System.out.println("PASSWORD MATCHES: " + passwordMatches);
+
+        if (!passwordMatches) {
+            throw new RuntimeException("Invalid email or password");
         }
 
-        // Generate JWT token
+        String role = user.getRole().name();
+
         String token = jwtService.generateToken(
                 user.getId(),
                 user.getEmail(),
-                user.getRole().name()
+                role
         );
 
         return new LoginResponseDTO(
@@ -54,7 +79,7 @@ public class AuthServiceImpl implements AuthService {
                 user.getFirstName(),
                 user.getLastName(),
                 user.getEmail(),
-                user.getRole().name(),
+                role,
                 user.getStatus(),
                 token
         );
