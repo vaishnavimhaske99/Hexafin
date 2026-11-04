@@ -39,15 +39,20 @@ public class User {
     @Column(nullable = false)
     private String status = "ACTIVE";
 
-    // Role relationship with the roles table
+    // Existing Role relationship
     @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "role_id", nullable = false)
     private Role roleEntity;
 
-    // Application-level role: ADMIN or SALES
+    // Existing application-level role
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private UserRole role;
+
+    // NEW: Dynamic reporting hierarchy
+    @ManyToOne(fetch = FetchType.EAGER)
+    @JoinColumn(name = "reports_to_id")
+    private User reportsTo;
 
     public User() {
     }
@@ -122,5 +127,14 @@ public class User {
 
     public void setRole(UserRole role) {
         this.role = role;
+    }
+
+    // Reporting supervisor getter/setter
+    public User getReportsTo() {
+        return reportsTo;
+    }
+
+    public void setReportsTo(User reportsTo) {
+        this.reportsTo = reportsTo;
     }
 }

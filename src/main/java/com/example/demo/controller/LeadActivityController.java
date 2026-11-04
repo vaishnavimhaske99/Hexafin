@@ -61,7 +61,7 @@ public class LeadActivityController {
         return leadActivityService
                 .updateActivity(id, request);
     }
-
+   
     @DeleteMapping("/activities/{id}")
     public void deleteActivity(
             @PathVariable Long id) {

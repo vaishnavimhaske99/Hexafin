@@ -19,7 +19,7 @@ public class LeadStatusHistoryController {
         this.leadStatusHistoryService = leadStatusHistoryService;
     }
 
-    @PatchMapping("/{leadId}/status")
+    @PutMapping("/{leadId}/status")
     public LeadStatusHistoryResponseDTO updateLeadStatus(
             @PathVariable Long leadId,
             @RequestBody LeadStatusUpdateRequestDTO request) {

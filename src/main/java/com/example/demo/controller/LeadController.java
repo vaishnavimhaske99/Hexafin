@@ -7,7 +7,6 @@ import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
-
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -16,13 +15,11 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
-
 import org.springframework.web.server.ResponseStatusException;
 
 import com.example.demo.dto.AssignLeadRequestDTO;
 import com.example.demo.dto.LeadRequestDTO;
 import com.example.demo.dto.LeadResponseDTO;
-
 import com.example.demo.entity.User;
 import com.example.demo.service.LeadService;
 
@@ -38,18 +35,26 @@ public class LeadController {
         this.leadService = leadService;
     }
 
-    // =========================
+    
+    @GetMapping("/assigned-to/{userId}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'TEAM_LEAD', 'SALES')")
+    public List<LeadResponseDTO> getLeadsAssignedToUser(@PathVariable Long userId) {
+        return leadService.getLeadsByAssignedTo(userId);
+    }
+    // =========================================
     // GET LOGGED-IN USER
-    // =========================
+    // =========================================
     private User getLoggedInUser() {
 
         Authentication authentication =
-                SecurityContextHolder.getContext().getAuthentication();
+                SecurityContextHolder.getContext()
+                        .getAuthentication();
 
         if (authentication == null
                 || !authentication.isAuthenticated()
                 || authentication.getPrincipal() == null
-                || "anonymousUser".equals(authentication.getPrincipal())) {
+                || "anonymousUser".equals(
+                        authentication.getPrincipal())) {
 
             throw new ResponseStatusException(
                     HttpStatus.UNAUTHORIZED,
@@ -65,14 +70,15 @@ public class LeadController {
 
         throw new ResponseStatusException(
                 HttpStatus.UNAUTHORIZED,
-                "Authenticated user details are unavailable. Check JWT authentication."
+                "Authenticated user details are unavailable. "
+                        + "Check JWT authentication."
         );
     }
 
-    // =========================
+    // =========================================
     // CREATE LEAD
     // TEMPORARY PUBLIC FOR LOCAL TESTING
-    // =========================
+    // =========================================
     @PostMapping
     // @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
     public LeadResponseDTO createLead(
@@ -81,27 +87,26 @@ public class LeadController {
         return leadService.createLead(request);
     }
 
-    // =========================
+    // =========================================
     // GET ALL LEADS
-    // =========================
+    // =========================================
     @GetMapping
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'TEAM_LEAD', 'SALES')")
     public List<LeadResponseDTO> getAllLeads() {
-
         return leadService.getAllLeads();
     }
 
-    // =========================
+    // =========================================
     // GET LEAD BY ID
-    // =========================
-
-@GetMapping("/{id}")
-public LeadResponseDTO getLeadById(@PathVariable Long id) {
-    return leadService.getLeadById(id);
-}
-
-    // =========================
+    // =========================================
+    @GetMapping("/{id}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'TEAM_LEAD', 'SALES')")
+    public LeadResponseDTO getLeadById(@PathVariable Long id) {
+        return leadService.getLeadById(id);
+    }
+    // =========================================
     // UPDATE LEAD
-    // =========================
+    // =========================================
     @PutMapping("/{id}")
     @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'SALES')")
     public LeadResponseDTO updateLead(
@@ -111,9 +116,9 @@ public LeadResponseDTO getLeadById(@PathVariable Long id) {
         return leadService.updateLead(id, request);
     }
 
-    // =========================
-    // DELETE LEAD
-    // =========================
+    // =========================================
+    // DELETE LEAD - ADMIN ONLY
+    // =========================================
     @DeleteMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")
     public void deleteLead(
@@ -122,9 +127,9 @@ public LeadResponseDTO getLeadById(@PathVariable Long id) {
         leadService.deleteLead(id);
     }
 
-    // =========================
-    // GET MY LEADS
-    // =========================
+    // =========================================
+    // GET MY LEADS - SALES ONLY
+    // =========================================
     @GetMapping("/my-leads")
     @PreAuthorize("hasRole('SALES')")
     public List<LeadResponseDTO> getMyLeads() {
@@ -134,15 +139,29 @@ public LeadResponseDTO getLeadById(@PathVariable Long id) {
         return leadService.getMyLeads(user.getId());
     }
 
-    // =========================
-    // ASSIGN LEAD
-    // =========================
-    @PutMapping("/{leadId}/assign")
-    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
+    // =========================================
+    // GET LEADS BY SALES USER - ADMIN ONLY
+    // =========================================
+    @GetMapping("/sales-user/{userId}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'TEAM_LEAD')")  // 🔥
+    public List<LeadResponseDTO> getLeadsBySalesUser(@PathVariable Long userId) {
+        return leadService.getLeadsBySalesUser(userId);
+    }
+    @GetMapping("/team-leads")
+    @PreAuthorize("hasAnyRole('TEAM_LEAD', 'MANAGER')")
+    public List<LeadResponseDTO> getTeamLeads(Authentication authentication) {
+        User loggedInUser = (User) authentication.getPrincipal();
+        return leadService.getTeamLeads(loggedInUser.getId());
+    }
+    // =========================================
+    // ASSIGN / REASSIGN LEAD
+    // ADMIN, MANAGER, TEAM_LEAD
+    // =========================================
+    @PutMapping("/{leadId}/assign/{assignedToId}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'TEAM_LEAD')")  // 🔥
     public LeadResponseDTO assignLead(
             @PathVariable Long leadId,
-            @Valid @RequestBody AssignLeadRequestDTO request) {
-
-        return leadService.assignLead(leadId, request);
+            @PathVariable Long assignedToId) {
+        return leadService.assignLead(leadId, assignedToId);
     }
 }

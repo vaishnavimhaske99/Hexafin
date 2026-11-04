@@ -1,23 +1,17 @@
-
 package com.example.demo.service;
 
 import java.util.List;
-
 import com.example.demo.dto.SignupRequestDTO;
+import com.example.demo.dto.UpdateUserHierarchyRequestDTO;
 import com.example.demo.dto.UserRequestDTO;
-import com.example.demo.entity.User;
+import com.example.demo.dto.UserResponseDTO;
 
 public interface UserService {
-
-    // Admin-controlled user creation
-    User createUser(UserRequestDTO request);
-
-    // Public signup for SALES users only
-    User createPublicUser(SignupRequestDTO request);
-
-    // Get all users
-    List<User> getAllUsers();
-
-    // Get user by ID
-    User getUserById(Long id);
+    UserResponseDTO createUser(UserRequestDTO request);
+    UserResponseDTO createPublicUser(SignupRequestDTO request);
+    List<UserResponseDTO> getAllUsers();
+    UserResponseDTO getUserById(Long id);
+    List<UserResponseDTO> findByReportsToId(Long reportsToId);
+    List<UserResponseDTO> getManagerTeam();
+    UserResponseDTO updateUserHierarchy(Long userId, UpdateUserHierarchyRequestDTO request);
 }

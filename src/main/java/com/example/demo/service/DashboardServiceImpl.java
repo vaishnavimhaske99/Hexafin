@@ -82,7 +82,7 @@ public class DashboardServiceImpl implements DashboardService {
         for (User user : salesUsers) {
 
             long leadCount =
-                    leadRepository.countByAssignedToId(user.getId());
+                    leadRepository.countByAssignedTo_Id(user.getId());
 
             String fullName =
                     user.getFirstName() + " " + user.getLastName();
@@ -126,46 +126,46 @@ public class DashboardServiceImpl implements DashboardService {
     public DashboardResponseDTO getSalesDashboard(Long userId) {
 
         long totalLeads =
-                leadRepository.countByAssignedToId(userId);
+                leadRepository.countByAssignedTo_Id(userId);
 
         long newLeads =
-                leadRepository.countByAssignedToIdAndStatus(
+                leadRepository.countByAssignedTo_IdAndStatus(
                         userId,
                         LeadStatus.NEW
                 );
 
         long contactedLeads =
-                leadRepository.countByAssignedToIdAndStatus(
+                leadRepository.countByAssignedTo_IdAndStatus(
                         userId,
                         LeadStatus.CONTACTED
                 );
 
         long qualifiedLeads =
-                leadRepository.countByAssignedToIdAndStatus(
+                leadRepository.countByAssignedTo_IdAndStatus(
                         userId,
                         LeadStatus.QUALIFIED
                 );
 
         long followUpLeads =
-                leadRepository.countByAssignedToIdAndStatus(
+                leadRepository.countByAssignedTo_IdAndStatus(
                         userId,
                         LeadStatus.FOLLOW_UP
                 );
 
         long proposalLeads =
-                leadRepository.countByAssignedToIdAndStatus(
+                leadRepository.countByAssignedTo_IdAndStatus(
                         userId,
                         LeadStatus.PROPOSAL
                 );
 
         long wonLeads =
-                leadRepository.countByAssignedToIdAndStatus(
+                leadRepository.countByAssignedTo_IdAndStatus(
                         userId,
                         LeadStatus.WON
                 );
 
         long lostLeads =
-                leadRepository.countByAssignedToIdAndStatus(
+                leadRepository.countByAssignedTo_IdAndStatus(
                         userId,
                         LeadStatus.LOST
                 );

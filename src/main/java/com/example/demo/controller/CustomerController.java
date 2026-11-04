@@ -1,13 +1,14 @@
 package com.example.demo.controller;
 
+import java.io.IOException;
 import java.util.List;
 
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PutMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.core.io.Resource;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import com.example.demo.dto.CustomerRequestDTO;
 import com.example.demo.dto.CustomerResponseDTO;
@@ -23,37 +24,63 @@ public class CustomerController {
         this.customerService = customerService;
     }
 
-    // GET ALL CUSTOMERS
-    @GetMapping
-    public List<CustomerResponseDTO> getAllCustomers() {
+    @PostMapping("/convert/{leadId}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'TEAM_LEAD', 'SALES')")
+    public CustomerResponseDTO convertLead(
+            @PathVariable Long leadId,
+            @RequestBody CustomerRequestDTO request) {
+        return customerService.convertLeadToCustomer(leadId, request);
+    }
 
+    @GetMapping
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'TEAM_LEAD', 'SALES')")
+    public List<CustomerResponseDTO> getAllCustomers() {
         return customerService.getAllCustomers();
     }
 
-    // GET CUSTOMER BY ID
-    @GetMapping("/{customerId}")
-    public CustomerResponseDTO getCustomerById(
-            @PathVariable Long customerId) {
-
-        return customerService.getCustomerById(customerId);
+    @GetMapping("/{id}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'TEAM_LEAD', 'SALES')")
+    public CustomerResponseDTO getCustomerById(@PathVariable Long id) {
+        return customerService.getCustomerById(id);
     }
 
-    // GET CUSTOMER BY SOURCE LEAD
-    @GetMapping("/lead/{leadId}")
-    public CustomerResponseDTO getCustomerByLeadId(
-            @PathVariable Long leadId) {
-
-        return customerService.getCustomerByLeadId(leadId);
-    }
-
-    // UPDATE CUSTOMER
-    @PutMapping("/{customerId}")
+    @PutMapping("/{id}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'TEAM_LEAD', 'SALES')")
     public CustomerResponseDTO updateCustomer(
-            @PathVariable Long customerId,
+            @PathVariable Long id,
             @RequestBody CustomerRequestDTO request) {
+        return customerService.updateCustomer(id, request);
+    }
 
-        return customerService.updateCustomer(
-                customerId,
-                request);
+    // ═══════════ UPLOAD DOCUMENT ✅ FIXED ═══════════
+    @PostMapping("/{id}/documents/{docType}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'TEAM_LEAD', 'SALES')")
+    public CustomerResponseDTO uploadDocument(
+            @PathVariable Long id,
+            @PathVariable String docType,
+            @RequestParam("file") MultipartFile file) throws IOException {
+        return customerService.uploadDocument(id, docType, file);
+    }
+
+    // ═══════════ DOWNLOAD DOCUMENT ═══════════
+    @GetMapping("/{id}/documents/{docType}/download")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'TEAM_LEAD', 'SALES')")
+    public ResponseEntity<Resource> downloadDocument(
+            @PathVariable Long id,
+            @PathVariable String docType) {
+        Resource file = customerService.downloadDocument(id, docType);
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION,
+                        "attachment; filename=\"" + file.getFilename() + "\"")
+                .body(file);
+    }
+
+    // ═══════════ DELETE DOCUMENT ═══════════
+    @DeleteMapping("/{id}/documents/{docType}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'TEAM_LEAD', 'SALES')")
+    public CustomerResponseDTO deleteDocument(
+            @PathVariable Long id,
+            @PathVariable String docType) {
+        return customerService.deleteDocument(id, docType);
     }
 }

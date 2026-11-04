@@ -2,14 +2,13 @@ package com.example.demo.mapper;
 
 import com.example.demo.dto.LeadStatusHistoryResponseDTO;
 import com.example.demo.entity.LeadStatusHistory;
+import com.example.demo.entity.User;
 
 public class LeadStatusHistoryMapper {
 
-    public static LeadStatusHistoryResponseDTO toResponseDTO(
-            LeadStatusHistory history) {
+    public static LeadStatusHistoryResponseDTO toResponseDTO(LeadStatusHistory history) {
 
-        LeadStatusHistoryResponseDTO dto =
-                new LeadStatusHistoryResponseDTO();
+        LeadStatusHistoryResponseDTO dto = new LeadStatusHistoryResponseDTO();
 
         dto.setId(history.getId());
 
@@ -19,31 +18,25 @@ public class LeadStatusHistoryMapper {
 
         dto.setOldStatus(history.getOldStatus());
         dto.setNewStatus(history.getNewStatus());
+        dto.setChangedAt(history.getChangedAt());
 
+        // ✅ कोणी बदललं
         if (history.getChangedBy() != null) {
+            User changedBy = history.getChangedBy();
 
-            dto.setChangedById(
-                    history.getChangedBy().getId());
+            dto.setChangedById(changedBy.getId());
 
-            String firstName =
-                    history.getChangedBy().getFirstName();
-
-            String lastName =
-                    history.getChangedBy().getLastName();
+            String firstName = changedBy.getFirstName();
+            String lastName = changedBy.getLastName();
 
             String fullName = firstName;
 
-            if (lastName != null &&
-                    !lastName.isBlank()) {
-
-                fullName =
-                        firstName + " " + lastName;
+            if (lastName != null && !lastName.isBlank()) {
+                fullName = firstName + " " + lastName;
             }
 
             dto.setChangedByName(fullName);
         }
-
-        dto.setChangedAt(history.getChangedAt());
 
         return dto;
     }

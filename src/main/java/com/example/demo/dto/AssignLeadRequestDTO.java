@@ -1,17 +1,23 @@
+
 package com.example.demo.dto;
+
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Positive;
 
 public class AssignLeadRequestDTO {
 
-    private Long userId;
+    @NotNull(message = "Sales User ID is required")
+    @Positive(message = "Sales User ID must be positive")
+    private Long assignedToId;
 
     public AssignLeadRequestDTO() {
     }
 
-    public Long getUserId() {
-        return userId;
+    public Long getAssignedToId() {
+        return assignedToId;
     }
 
-    public void setUserId(Long userId) {
-        this.userId = userId;
+    public void setAssignedToId(Long assignedToId) {
+        this.assignedToId = assignedToId;
     }
 }

@@ -13,17 +13,19 @@ public interface LeadRepository extends JpaRepository<Lead, Long> {
 
     boolean existsByPhone(String phone);
 
-    List<Lead> findByAssignedToId(Long userId);
+    // ✅ underscore सह
+    List<Lead> findByAssignedTo_Id(Long assignedToId);
 
     // Dashboard counts
-
     long countByStatus(LeadStatus status);
 
     long countByAssignedToIsNotNull();
 
     long countByAssignedToIsNull();
 
-    long countByAssignedToId(Long userId);
+    // ✅ underscore सह
+    long countByAssignedTo_Id(Long userId);
 
-    long countByAssignedToIdAndStatus(Long userId, LeadStatus status);
+    // ✅ underscore सह
+    long countByAssignedTo_IdAndStatus(Long userId, LeadStatus status);
 }

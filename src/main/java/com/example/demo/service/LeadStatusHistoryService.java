@@ -11,6 +11,5 @@ public interface LeadStatusHistoryService {
             Long leadId,
             LeadStatusUpdateRequestDTO request);
 
-    List<LeadStatusHistoryResponseDTO> getStatusHistoryByLeadId(
-            Long leadId);
+    List<LeadStatusHistoryResponseDTO> getStatusHistoryByLeadId(Long leadId);
 }

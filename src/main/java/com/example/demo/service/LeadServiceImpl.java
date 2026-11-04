@@ -1,16 +1,16 @@
-
 package com.example.demo.service;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Locale;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
-import com.example.demo.dto.AssignLeadRequestDTO;
 import com.example.demo.dto.LeadRequestDTO;
 import com.example.demo.dto.LeadResponseDTO;
 import com.example.demo.entity.Lead;
@@ -20,11 +20,6 @@ import com.example.demo.entity.UserRole;
 import com.example.demo.mapper.LeadMapper;
 import com.example.demo.repository.LeadRepository;
 import com.example.demo.repository.UserRepository;
-
-
-import org.springframework.http.HttpStatus;
-import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.server.ResponseStatusException;
 
 @Service
 public class LeadServiceImpl implements LeadService {
@@ -43,115 +38,359 @@ public class LeadServiceImpl implements LeadService {
         this.notificationService = notificationService;
     }
 
-    // =========================
+    // =========================================
+    // GET LEADS FOR A SELECTED SALES USER - ADMIN
+    // =========================================
+    @Override
+    @Transactional(readOnly = true)
+    public List<LeadResponseDTO> getLeadsBySalesUser(Long userId) {
+
+        User loggedInUser = getAuthenticatedUser();
+        UserRole role = loggedInUser.getRole();
+
+        // 🔥 ADMIN, MANAGER, TEAM_LEAD ला परवानगी
+        if (role != UserRole.ADMIN 
+                && role != UserRole.MANAGER 
+                && role != UserRole.TEAM_LEAD) {
+            throw new ResponseStatusException(
+                    HttpStatus.FORBIDDEN,
+                    "Only ADMIN, MANAGER or TEAM_LEAD can view Sales User leads"
+            );
+        }
+
+        if (userId == null || userId <= 0) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST, "Valid Sales User ID is required");
+        }
+
+        User salesUser = userRepository.findById(userId)
+            .orElseThrow(() -> new ResponseStatusException(
+                HttpStatus.NOT_FOUND, "User not found with id: " + userId));
+
+        if (salesUser.getRole() != UserRole.SALES) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST, "Selected user is not a SALES user");
+        }
+
+        // 🔥 TEAM_LEAD/MANAGER साठी hierarchy check
+        if (role != UserRole.ADMIN) {
+            boolean isInMyTeam = isUnderUserHierarchy(salesUser, loggedInUser.getId());
+            if (!isInMyTeam) {
+                throw new ResponseStatusException(
+                    HttpStatus.FORBIDDEN,
+                    "This Sales User is not in your team"
+                );
+            }
+        }
+
+        return leadRepository.findByAssignedTo_Id(userId)
+            .stream()
+            .map(LeadMapper::toResponseDTO)
+            .toList();
+    }
+
+    // =========================================
+    // ✅ NEW: GET LEADS ASSIGNED TO ANY USER (with hierarchy check)
+    // =========================================
+    @Override
+    public List<LeadResponseDTO> getLeadsByAssignedTo(Long userId) {
+        List<Lead> leads = leadRepository.findByAssignedTo_Id (userId);
+        return leads.stream()
+                .map(LeadMapper::toResponseDTO)
+                .toList();
+    }
+    // =========================================
+    // GET AUTHENTICATED USER
+    // =========================================
+    private User getAuthenticatedUser() {
+
+        Authentication authentication =
+                SecurityContextHolder.getContext().getAuthentication();
+
+        if (authentication == null
+                || !authentication.isAuthenticated()
+                || authentication.getPrincipal() == null
+                || "anonymousUser".equals(authentication.getPrincipal())) {
+
+            throw new ResponseStatusException(
+                    HttpStatus.UNAUTHORIZED,
+                    "Please login first"
+            );
+        }
+
+        Object principal = authentication.getPrincipal();
+
+        if (principal instanceof User) {
+            return (User) principal;
+        }
+
+        if (principal instanceof String) {
+
+            String email = ((String) principal)
+                    .trim()
+                    .toLowerCase(Locale.ROOT);
+
+            return userRepository.findByEmail(email)
+                    .orElseThrow(() -> new ResponseStatusException(
+                            HttpStatus.UNAUTHORIZED,
+                            "Authenticated user not found"
+                    ));
+        }
+
+        throw new ResponseStatusException(
+                HttpStatus.UNAUTHORIZED,
+                "Unable to identify logged-in user"
+        );
+    }
+
+    
+    // =========================================
+    // GET TEAM LEADS (Manager / Team Lead)
+    // =========================================
+    @Override
+    @Transactional(readOnly = true)
+    public List<LeadResponseDTO> getTeamLeads(Long supervisorId) {
+        
+        User loggedInUser = getAuthenticatedUser();
+
+        // फक्त MANAGER किंवा TEAM_LEAD च लीड्स पाहू शकतात
+        if (loggedInUser.getRole() != UserRole.MANAGER 
+                && loggedInUser.getRole() != UserRole.TEAM_LEAD) {
+            throw new ResponseStatusException(
+                    HttpStatus.FORBIDDEN,
+                    "Only MANAGER or TEAM_LEAD can view team leads"
+            );
+        }
+
+        // जर supervisorId दिला नसेल तर स्वतःचा ID वापरा
+        Long actualSupervisorId = (supervisorId != null) ? supervisorId : loggedInUser.getId();
+
+        // 1. त्या supervisor खालील सगळे users शोधा
+        List<User> allUsers = userRepository.findAll();
+        java.util.Set<Long> teamIds = new java.util.HashSet<>();
+        teamIds.add(actualSupervisorId);
+
+        boolean changed;
+        do {
+            changed = false;
+            for (User candidate : allUsers) {
+                if (candidate.getReportsTo() != null
+                        && teamIds.contains(candidate.getReportsTo().getId())) {
+                    if (teamIds.add(candidate.getId())) {
+                        changed = true;
+                    }
+                }
+            }
+        } while (changed);
+
+        // 2. त्या टीमला असाइन केलेले लीड्स फिल्टर करा
+        return leadRepository.findAll()
+                .stream()
+                .filter(lead -> lead.getAssignedTo() != null
+                        && teamIds.contains(lead.getAssignedTo().getId()))
+                .map(LeadMapper::toResponseDTO)
+                .toList();
+    }
+    // =========================================
     // CREATE LEAD
-    // =========================
-
-
+    // =========================================
     @Override
     @Transactional
     public LeadResponseDTO createLead(LeadRequestDTO request) {
 
-        System.out.println("DTO product: " + request.getProduct());
+        if (request == null) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Lead request is required"
+            );
+        }
 
         Lead lead = LeadMapper.toEntity(request);
-
-        System.out.println("Entity product: " + lead.getProduct());
 
         lead.setStatus(LeadStatus.NEW);
 
         LocalDateTime now = LocalDateTime.now();
+
         lead.setCreatedAt(now);
         lead.setUpdatedAt(now);
 
         Lead savedLead = leadRepository.save(lead);
 
-        System.out.println("Saved product: " + savedLead.getProduct());
-
         return LeadMapper.toResponseDTO(savedLead);
     }
-    // =========================
-    // GET ALL LEADS
-    // =========================
 
+    // =========================================
+    // GET ALL LEADS - ROLE-BASED FILTERING
+    // =========================================
     @Override
     @Transactional(readOnly = true)
     public List<LeadResponseDTO> getAllLeads() {
 
-        List<Lead> leads = leadRepository.findAll();
+        User user = getAuthenticatedUser();
+
+        if (user.getRole() == null) {
+            throw new ResponseStatusException(
+                    HttpStatus.FORBIDDEN,
+                    "User role is not configured"
+            );
+        }
+
+        List<Lead> leads;
+
+        switch (user.getRole()) {
+
+            case ADMIN:
+                leads = leadRepository.findAll();
+                break;
+
+            case MANAGER:
+            case TEAM_LEAD:
+            case SALES:
+                leads = getVisibleLeads(user);
+                break;
+
+            default:
+                throw new ResponseStatusException(
+                        HttpStatus.FORBIDDEN,
+                        "You are not authorized to view leads"
+                );
+        }
 
         return leads.stream()
                 .map(LeadMapper::toResponseDTO)
                 .toList();
     }
 
-    // =========================
-    // GET LEAD BY ID
-    // =========================
+    private List<Lead> getVisibleLeads(User loggedInUser) {
 
+        Long loggedInUserId = loggedInUser.getId();
 
+        // SALES sees only their own assigned leads
+        if (loggedInUser.getRole() == UserRole.SALES) {
+            return leadRepository.findByAssignedTo_Id(loggedInUserId);
+        }
 
-@Override
-@Transactional(readOnly = true)
-public LeadResponseDTO getLeadById(Long id) {
+        // Include the logged-in user and all descendants
+        List<User> allUsers = userRepository.findAll();
 
-    Lead lead = leadRepository.findById(id)
-            .orElseThrow(() -> new ResponseStatusException(
-                    HttpStatus.NOT_FOUND,
-                    "Lead not found with id: " + id
-            ));
+        java.util.Set<Long> visibleUserIds = new java.util.HashSet<>();
+        visibleUserIds.add(loggedInUserId);
 
-    return LeadMapper.toResponseDTO(lead);
-}
+        boolean changed;
 
+        do {
+            changed = false;
 
-    // =========================
-    // UPDATE LEAD
-    // =========================
+            for (User candidate : allUsers) {
 
+                if (candidate.getReportsTo() != null
+                        && visibleUserIds.contains(
+                                candidate.getReportsTo().getId())) {
+
+                    if (visibleUserIds.add(candidate.getId())) {
+                        changed = true;
+                    }
+                }
+            }
+
+        } while (changed);
+
+        // Return leads assigned to users in this hierarchy
+        return leadRepository.findAll()
+                .stream()
+                .filter(lead ->
+                        lead.getAssignedTo() != null
+                        && visibleUserIds.contains(
+                                lead.getAssignedTo().getId()))
+                .toList();
+    }
+
+    // =========================================
+    // GET LEAD BY ID - OWNERSHIP CHECK
+    // =========================================
     @Override
+    @Transactional(readOnly = true)
+    public LeadResponseDTO getLeadById(Long id) {
+
+        if (id == null || id <= 0) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Valid lead ID is required"
+            );
+        }
+
+        User user = getAuthenticatedUser();
+
+        Lead lead = leadRepository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND,
+                        "Lead not found with id: " + id
+                ));
+
+        if (user.getRole() == UserRole.ADMIN) {
+            return LeadMapper.toResponseDTO(lead);
+        }
+
+        boolean canView = getVisibleLeads(user)
+                .stream()
+                .anyMatch(visibleLead ->
+                        visibleLead.getId().equals(lead.getId()));
+
+        if (!canView) {
+            throw new ResponseStatusException(
+                    HttpStatus.FORBIDDEN,
+                    "You are not authorized to view this lead"
+            );
+        }
+
+        return LeadMapper.toResponseDTO(lead);
+    }
+
+    // =========================================
+    // UPDATE LEAD - OWNERSHIP CHECK
+    // =========================================
+    @Override
+    @Transactional
     public LeadResponseDTO updateLead(
             Long id,
             LeadRequestDTO request) {
 
-        Lead lead = leadRepository.findById(id)
-                .orElseThrow(() ->
-                        new RuntimeException(
-                                "Lead not found with id: " + id));
-
-        Authentication authentication =
-                SecurityContextHolder.getContext().getAuthentication();
-
-        User user = (User) authentication.getPrincipal();
-
-        // ADMIN can update any lead
-        if (user.getRole() == UserRole.ADMIN) {
-
-            // allowed
-
+        if (id == null || id <= 0) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Valid lead ID is required"
+            );
         }
 
-        // SALES can update only assigned lead
-        else if (user.getRole() == UserRole.SALES) {
+        if (request == null) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Lead request is required"
+            );
+        }
 
-            if (lead.getAssignedTo() == null ||
-                    !lead.getAssignedTo().getId().equals(user.getId())) {
+        User user = getAuthenticatedUser();
 
-                throw new RuntimeException(
-                        "You are not authorized to update this lead");
+        Lead lead = leadRepository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND,
+                        "Lead not found with id: " + id
+                ));
+
+        if (user.getRole() != UserRole.ADMIN) {
+
+            boolean canUpdate = getVisibleLeads(user)
+                    .stream()
+                    .anyMatch(visibleLead ->
+                            visibleLead.getId().equals(lead.getId()));
+
+            if (!canUpdate) {
+                throw new ResponseStatusException(
+                        HttpStatus.FORBIDDEN,
+                        "You are not authorized to update this lead"
+                );
             }
         }
-
-        // Other roles are not allowed
-        else {
-
-            throw new RuntimeException(
-                    "You are not authorized to update this lead");
-        }
-
-        // =========================
-        // UPDATE LEAD FIELDS
-        // =========================
 
         lead.setFirstName(request.getFirstName());
         lead.setLastName(request.getLastName());
@@ -178,82 +417,165 @@ public LeadResponseDTO getLeadById(Long id) {
         return LeadMapper.toResponseDTO(updatedLead);
     }
 
-    // =========================
-    // DELETE LEAD
-    // =========================
-
+    // =========================================
+    // DELETE LEAD - ADMIN ONLY
+    // =========================================
     @Override
+    @Transactional
     public void deleteLead(Long id) {
 
+        User loggedInUser = getAuthenticatedUser();
+
+        if (loggedInUser.getRole() != UserRole.ADMIN) {
+            throw new ResponseStatusException(
+                    HttpStatus.FORBIDDEN,
+                    "Only ADMIN can delete leads"
+            );
+        }
+
+        if (id == null || id <= 0) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Valid lead ID is required"
+            );
+        }
+
         Lead lead = leadRepository.findById(id)
-                .orElseThrow(() ->
-                        new RuntimeException(
-                                "Lead not found with id: " + id));
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND,
+                        "Lead not found with id: " + id
+                ));
 
         leadRepository.delete(lead);
     }
 
-    // =========================
-    // ASSIGN LEAD
-    // =========================
-
+    // =========================================
+    // ASSIGN / REASSIGN LEAD - HIERARCHY BASED
+    // =========================================
     @Override
-    public LeadResponseDTO assignLead(
-            Long leadId,
-            AssignLeadRequestDTO request) {
+    @Transactional
+    public LeadResponseDTO assignLead(Long leadId, Long assignedToId) {
 
-        Lead lead = leadRepository.findById(leadId)
-                .orElseThrow(() ->
-                        new RuntimeException(
-                                "Lead not found with id: " + leadId));
-
-        User user = userRepository.findById(request.getUserId())
-                .orElseThrow(() ->
-                        new RuntimeException(
-                                "User not found with id: "
-                                        + request.getUserId()));
-
-        // Only SALES users can receive leads
-        if (user.getRole() == null ||
-                user.getRole() != UserRole.SALES) {
-
-            throw new RuntimeException(
-                    "Lead can only be assigned to SALES users");
+        if (leadId == null || leadId <= 0) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Valid Lead ID is required");
+        }
+        if (assignedToId == null || assignedToId <= 0) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Valid User ID is required");
         }
 
-        // Assign lead
-        lead.setAssignedTo(user);
+        User loggedInUser = getAuthenticatedUser();
+        if (loggedInUser.getRole() == null) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "User role is not configured");
+        }
 
+        UserRole role = loggedInUser.getRole();
+
+        // फक्त ADMIN, MANAGER, TEAM_LEAD assign करू शकतात
+        if (role != UserRole.ADMIN && role != UserRole.MANAGER && role != UserRole.TEAM_LEAD) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN,
+                    "You are not allowed to assign leads");
+        }
+
+        Lead lead = leadRepository.findById(leadId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Lead not found"));
+
+        User targetUser = userRepository.findById(assignedToId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
+
+        // ADMIN कोणालाही assign करू शकतो
+        // MANAGER फक्त त्याच्या hierarchy मध्ये assign करू शकतो
+        // TEAM_LEAD फक्त त्याच्या hierarchy मध्ये assign करू शकतो
+        if (role != UserRole.ADMIN) {
+            boolean belongsToHierarchy = isUnderUserHierarchy(targetUser, loggedInUser.getId());
+            if (!belongsToHierarchy) {
+                throw new ResponseStatusException(HttpStatus.FORBIDDEN,
+                        "You can assign leads only to users within your hierarchy");
+            }
+        }
+
+        lead.setAssignedTo(targetUser);
         lead.setUpdatedAt(LocalDateTime.now());
 
         Lead updatedLead = leadRepository.save(lead);
 
-        // =========================
-        // CREATE NOTIFICATION
-        // =========================
-
         notificationService.createNotification(
-                user.getId(),
+                targetUser.getId(),
                 "New Lead Assigned",
-                "Lead #" + lead.getId()
-                        + " has been assigned to you."
+                "Lead #" + updatedLead.getId() + " has been assigned to you."
         );
 
         return LeadMapper.toResponseDTO(updatedLead);
     }
 
-    // =========================
-    // GET MY LEADS
-    // =========================
+    // =========================================
+    // CHECK WHETHER TARGET IS A DESCENDANT
+    // =========================================
+    private boolean isUnderUserHierarchy(
+            User targetUser,
+            Long supervisorId) {
 
+        if (targetUser == null || supervisorId == null) {
+            return false;
+        }
+
+        java.util.Set<Long> visitedUserIds = new java.util.HashSet<>();
+
+        User current = targetUser;
+
+        while (current != null) {
+
+            Long currentId = current.getId();
+
+            if (currentId == null
+                    || !visitedUserIds.add(currentId)) {
+                return false;
+            }
+
+            User parent = current.getReportsTo();
+
+            if (parent == null) {
+                return false;
+            }
+
+            if (supervisorId.equals(parent.getId())) {
+                return true;
+            }
+
+            current = parent;
+        }
+
+        return false;
+    }
+
+    // =========================================
+    // GET MY LEADS
+    // =========================================
     @Override
+    @Transactional(readOnly = true)
     public List<LeadResponseDTO> getMyLeads(Long userId) {
 
+        User user = getAuthenticatedUser();
+
+        if (user.getRole() != UserRole.SALES) {
+            throw new ResponseStatusException(
+                    HttpStatus.FORBIDDEN,
+                    "Only SALES users can access their assigned leads"
+            );
+        }
+
+        if (userId == null || !user.getId().equals(userId)) {
+            throw new ResponseStatusException(
+                    HttpStatus.FORBIDDEN,
+                    "You can only view your own assigned leads"
+            );
+        }
+
         List<Lead> leads =
-                leadRepository.findByAssignedToId(userId);
+                leadRepository.findByAssignedTo_Id(user.getId());
 
         return leads.stream()
                 .map(LeadMapper::toResponseDTO)
                 .toList();
     }
+    
 }
