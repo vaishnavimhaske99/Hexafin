@@ -2,6 +2,7 @@ package com.example.demo.dto;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 
 import com.example.demo.entity.QuotationStatus;
 
@@ -10,7 +11,8 @@ public class QuotationRequestDTO {
     private String quotationNumber;
 
     private LocalDate quotationDate;
-
+    private String pdfFilePath;
+    private LocalDateTime pdfGeneratedAt;
     private LocalDate validUntil;
 
     private QuotationStatus status;
@@ -232,6 +234,20 @@ public class QuotationRequestDTO {
 	public void setNotes(String notes) {
 		this.notes = notes;
 	}
+	public String getPdfFilePath() {
+	    return pdfFilePath;
+	}
 
+	public void setPdfFilePath(String pdfFilePath) {
+	    this.pdfFilePath = pdfFilePath;
+	}
+
+	public LocalDateTime getPdfGeneratedAt() {
+	    return pdfGeneratedAt;
+	}
+
+	public void setPdfGeneratedAt(LocalDateTime pdfGeneratedAt) {
+	    this.pdfGeneratedAt = pdfGeneratedAt;
+	}
     // Getters and Setters
 }

@@ -5,6 +5,7 @@ import java.time.LocalDateTime;
 
 import com.example.demo.entity.LeadSource;
 import com.example.demo.entity.LeadStatus;
+import com.example.demo.entity.LeadImportStatus;
 import com.example.demo.entity.LoanProductType;
 
 public class LeadResponseDTO {
@@ -31,6 +32,11 @@ public class LeadResponseDTO {
     private LeadStatus status;
     private LoanProductType product;
     private String description;
+
+    // Raw Lead Information
+    private boolean raw;
+    private LeadImportStatus importStatus;
+    private String rawData;
 
     // Assignment Details
     private Long assignedToId;
@@ -152,7 +158,6 @@ public class LeadResponseDTO {
         this.status = status;
     }
 
-    // Single Loan Product
     public LoanProductType getProduct() {
         return product;
     }
@@ -167,6 +172,31 @@ public class LeadResponseDTO {
 
     public void setDescription(String description) {
         this.description = description;
+    }
+
+    // Raw Lead Getters and Setters
+    public boolean isRaw() {
+        return raw;
+    }
+
+    public void setRaw(boolean raw) {
+        this.raw = raw;
+    }
+
+    public LeadImportStatus getImportStatus() {
+        return importStatus;
+    }
+
+    public void setImportStatus(LeadImportStatus importStatus) {
+        this.importStatus = importStatus;
+    }
+
+    public String getRawData() {
+        return rawData;
+    }
+
+    public void setRawData(String rawData) {
+        this.rawData = rawData;
     }
 
     public Long getAssignedToId() {

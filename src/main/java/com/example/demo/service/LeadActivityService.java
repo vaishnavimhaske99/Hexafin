@@ -22,4 +22,6 @@ public interface LeadActivityService {
             LeadActivityRequestDTO request);
 
     void deleteActivity(Long id);
+    
+    List<LeadActivityResponseDTO> getTodaysActivities();
 }

@@ -1,3 +1,4 @@
+
 package com.example.demo.repository;
 
 import java.util.List;
@@ -6,6 +7,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 import com.example.demo.entity.Lead;
 import com.example.demo.entity.LeadStatus;
+import com.example.demo.entity.LeadImportStatus;
 
 public interface LeadRepository extends JpaRepository<Lead, Long> {
 
@@ -13,7 +15,7 @@ public interface LeadRepository extends JpaRepository<Lead, Long> {
 
     boolean existsByPhone(String phone);
 
-    // ✅ underscore सह
+    // Assigned Leads
     List<Lead> findByAssignedTo_Id(Long assignedToId);
 
     // Dashboard counts
@@ -23,9 +25,14 @@ public interface LeadRepository extends JpaRepository<Lead, Long> {
 
     long countByAssignedToIsNull();
 
-    // ✅ underscore सह
     long countByAssignedTo_Id(Long userId);
 
-    // ✅ underscore सह
     long countByAssignedTo_IdAndStatus(Long userId, LeadStatus status);
+
+    // Raw Lead queries
+    List<Lead> findByRawTrue();
+
+    List<Lead> findByRawTrueAndImportStatus(LeadImportStatus importStatus);
+
+    long countByRawTrue();
 }

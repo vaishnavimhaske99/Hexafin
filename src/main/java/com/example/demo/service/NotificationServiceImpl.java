@@ -1,169 +1,190 @@
+
 package com.example.demo.service;
 
-import java.time.LocalDateTime;
-import java.util.List;
-import java.util.stream.Collectors;
-
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.example.demo.dto.NotificationResponseDTO;
+
 import com.example.demo.entity.Notification;
+import com.example.demo.entity.NotificationResponseDTO;
 import com.example.demo.entity.User;
+import com.example.demo.entity.NotificationPriority;
+import com.example.demo.entity.NotificationRequestDTO;
+import com.example.demo.mapper.NotificationMapper;
 import com.example.demo.repository.NotificationRepository;
 import com.example.demo.repository.UserRepository;
+import com.example.demo.service.NotificationService;
+
+import jakarta.persistence.EntityNotFoundException;
 
 @Service
+@Transactional(readOnly = true)
 public class NotificationServiceImpl implements NotificationService {
 
     private final NotificationRepository notificationRepository;
     private final UserRepository userRepository;
+    private final NotificationMapper notificationMapper;
 
     public NotificationServiceImpl(
             NotificationRepository notificationRepository,
-            UserRepository userRepository) {
+            UserRepository userRepository,
+            NotificationMapper notificationMapper) {
 
         this.notificationRepository = notificationRepository;
         this.userRepository = userRepository;
+        this.notificationMapper = notificationMapper;
     }
 
-    // =========================
-    // CREATE NOTIFICATION
-    // =========================
-
+    // Create notification
     @Override
     @Transactional
-    public void createNotification(
-            Long userId,
-            String title,
-            String message) {
+    public NotificationResponseDTO createNotification(
+            Long recipientId,
+            Long actorId,
+            NotificationRequestDTO request) {
 
-        User user = userRepository.findById(userId)
+        User recipient = userRepository.findById(recipientId)
                 .orElseThrow(() ->
-                        new RuntimeException(
-                                "User not found with id: " + userId));
+                        new EntityNotFoundException(
+                                "Notification recipient not found: " + recipientId));
+
+        User actor = null;
+
+        if (actorId != null) {
+            actor = userRepository.findById(actorId)
+                    .orElseThrow(() ->
+                            new EntityNotFoundException(
+                                    "Notification actor not found: " + actorId));
+        }
 
         Notification notification = new Notification();
 
-        notification.setUser(user);
-        notification.setTitle(title);
-        notification.setMessage(message);
-        notification.setRead(false);
-        notification.setCreatedAt(LocalDateTime.now());
+        notification.setUser(recipient);
+        notification.setActor(actor);
 
-        notificationRepository.save(notification);
+        notification.setType(request.getType());
+        notification.setCategory(request.getCategory());
+
+        notification.setPriority(
+                request.getPriority() != null
+                        ? request.getPriority()
+                        : NotificationPriority.NORMAL
+        );
+
+        notification.setTitle(request.getTitle());
+        notification.setMessage(request.getMessage());
+
+        notification.setReferenceType(request.getReferenceType());
+        notification.setReferenceId(request.getReferenceId());
+        notification.setActionUrl(request.getActionUrl());
+
+        Notification savedNotification =
+                notificationRepository.save(notification);
+
+        return notificationMapper.toResponseDTO(savedNotification);
     }
 
-    // =========================
-    // GET MY NOTIFICATIONS
-    // =========================
-
+    // Get all active notifications
     @Override
-    @Transactional(readOnly = true)
-    public List<NotificationResponseDTO> getMyNotifications(
-            Long userId) {
+    public Page<NotificationResponseDTO> getNotifications(
+            Long userId,
+            Pageable pageable) {
 
-        List<Notification> notifications =
-                notificationRepository
-                        .findByUserIdOrderByCreatedAtDesc(userId);
-
-        return notifications.stream()
-                .map(this::toDTO)
-                .collect(Collectors.toList());
+        return notificationRepository
+                .findByUser_IdAndIsArchivedFalseOrderByCreatedAtDesc(
+                        userId, pageable)
+                .map(notificationMapper::toResponseDTO);
     }
 
-    // =========================
-    // GET UNREAD NOTIFICATIONS
-    // =========================
-
+    // Get unread notifications
     @Override
-    @Transactional(readOnly = true)
-    public List<NotificationResponseDTO> getUnreadNotifications(
-            Long userId) {
+    public Page<NotificationResponseDTO> getUnreadNotifications(
+            Long userId,
+            Pageable pageable) {
 
-        List<Notification> notifications =
-                notificationRepository
-                        .findByUserIdAndIsReadFalseOrderByCreatedAtDesc(
-                                userId);
-
-        return notifications.stream()
-                .map(this::toDTO)
-                .collect(Collectors.toList());
+        return notificationRepository
+                .findByUser_IdAndIsReadFalseAndIsArchivedFalseOrderByCreatedAtDesc(
+                        userId, pageable)
+                .map(notificationMapper::toResponseDTO);
     }
 
-    // =========================
-    // GET UNREAD COUNT
-    // =========================
-
+    // Get unread count
     @Override
-    @Transactional(readOnly = true)
     public long getUnreadCount(Long userId) {
 
         return notificationRepository
-                .countByUserIdAndIsReadFalse(userId);
+                .countByUser_IdAndIsReadFalseAndIsArchivedFalse(userId);
     }
 
-    // =========================
-    // MARK AS READ
-    // =========================
+    // Get notifications by category
+    @Override
+    public Page<NotificationResponseDTO> getNotificationsByCategory(
+            Long userId,
+            com.example.demo.entity.NotificationCategory category,
+            Pageable pageable) {
 
+        return notificationRepository
+                .findByUser_IdAndCategoryAndIsArchivedFalseOrderByCreatedAtDesc(
+                        userId, category, pageable)
+                .map(notificationMapper::toResponseDTO);
+    }
+
+    // Mark one notification as read
     @Override
     @Transactional
-    public void markAsRead(
+    public NotificationResponseDTO markAsRead(
             Long notificationId,
             Long userId) {
 
-        Notification notification =
-                notificationRepository.findById(notificationId)
-                        .orElseThrow(() ->
-                                new RuntimeException(
-                                        "Notification not found with id: "
-                                                + notificationId));
-
-        if (!notification.getUser().getId().equals(userId)) {
-
-            throw new RuntimeException(
-                    "You are not allowed to update this notification");
-        }
+        Notification notification = notificationRepository
+                .findByIdAndUser_Id(notificationId, userId)
+                .orElseThrow(() ->
+                        new EntityNotFoundException(
+                                "Notification not found: " + notificationId));
 
         notification.setRead(true);
 
-        notificationRepository.save(notification);
+        Notification updatedNotification =
+                notificationRepository.save(notification);
+
+        return notificationMapper.toResponseDTO(updatedNotification);
     }
 
-    // =========================
-    // MARK ALL AS READ
-    // =========================
-
+    // Mark all notifications as read
     @Override
     @Transactional
-    public void markAllAsRead(Long userId) {
+    public int markAllAsRead(Long userId) {
 
-        List<Notification> notifications =
-                notificationRepository
-                        .findByUserIdAndIsReadFalseOrderByCreatedAtDesc(
-                                userId);
-
-        for (Notification notification : notifications) {
-            notification.setRead(true);
-        }
-
-        notificationRepository.saveAll(notifications);
+        return notificationRepository.markAllAsRead(userId);
     }
 
-    // =========================
-    // ENTITY → DTO
-    // =========================
+    // Archive notification
+    @Override
+    @Transactional
+    public void archiveNotification(
+            Long notificationId,
+            Long userId) {
 
-    private NotificationResponseDTO toDTO(
-            Notification notification) {
+        int updatedRows = notificationRepository.archiveNotification(
+                notificationId, userId);
 
-        return new NotificationResponseDTO(
-                notification.getId(),
-                notification.getTitle(),
-                notification.getMessage(),
-                notification.isRead(),
-                notification.getCreatedAt()
-        );
+        if (updatedRows == 0) {
+            throw new EntityNotFoundException(
+                    "Notification not found for this user: " + notificationId);
+        }
+    }
+
+    // Get archived notifications
+    @Override
+    public Page<NotificationResponseDTO> getArchivedNotifications(
+            Long userId,
+            Pageable pageable) {
+
+        return notificationRepository
+                .findByUser_IdAndIsArchivedTrueOrderByCreatedAtDesc(
+                        userId, pageable)
+                .map(notificationMapper::toResponseDTO);
     }
 }

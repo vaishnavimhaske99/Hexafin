@@ -1,0 +1,33 @@
+package com.example.demo.entity;
+public enum NotificationType {
+
+    // CHAT
+    CHAT_MESSAGE,
+    GROUP_MESSAGE,
+
+    // LIVE LOCATION
+    LIVE_LOCATION_STARTED,
+    LIVE_LOCATION_STOPPED,
+
+    // LEAD
+    LEAD_ASSIGNED,
+    LEAD_UPDATED,
+    LEAD_STATUS_CHANGED,
+    LEAD_FOLLOW_UP,
+
+    // TASK
+    TASK_ASSIGNED,
+    TASK_UPDATED,
+    TASK_COMPLETED,
+
+    // ANNOUNCEMENT
+    ANNOUNCEMENT_CREATED,
+
+    // USER MANAGEMENT
+    USER_CREATED,
+    USER_UPDATED,
+    USER_DEACTIVATED,
+
+    // SYSTEM
+    SYSTEM_ALERT
+}

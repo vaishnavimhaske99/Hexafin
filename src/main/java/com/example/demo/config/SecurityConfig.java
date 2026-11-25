@@ -99,7 +99,8 @@ public class SecurityConfig {
 
                 // 🔐 बाकी सगळं — authenticated
                 .requestMatchers("/api/**").authenticated()
-
+                .requestMatchers("/api/locations/**").authenticated()
+                .requestMatchers("/api/notifications/**").authenticated()
                 .anyRequest().permitAll()
             )
 

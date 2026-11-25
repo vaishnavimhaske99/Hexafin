@@ -14,4 +14,8 @@ public interface UserService {
     List<UserResponseDTO> findByReportsToId(Long reportsToId);
     List<UserResponseDTO> getManagerTeam();
     UserResponseDTO updateUserHierarchy(Long userId, UpdateUserHierarchyRequestDTO request);
+    UserResponseDTO deactivateUser(Long userId, String reason);
+
+  
+    UserResponseDTO reactivateUser(Long userId);
 }

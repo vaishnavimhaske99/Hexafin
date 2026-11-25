@@ -11,7 +11,7 @@ public class QuotationResponseDTO {
     private Long id;
 
     private Long leadId;
-
+    private Long customerId;
     private String quotationNumber;
 
     private LocalDate quotationDate;
@@ -21,7 +21,9 @@ public class QuotationResponseDTO {
     private QuotationStatus status;
 
     private Integer revisionNumber;
+    private String pdfFilePath;
 
+    private LocalDateTime pdfGeneratedAt;
     // Created By
     private Long createdById;
 
@@ -295,6 +297,29 @@ public class QuotationResponseDTO {
 	public void setUpdatedAt(LocalDateTime updatedAt) {
 		this.updatedAt = updatedAt;
 	}
+	public Long getCustomerId() {
+	    return customerId;
+	}
 
+	public void setCustomerId(Long customerId) {
+	    this.customerId = customerId;
+	}
     // Getters and Setters
+
+	public String getPdfFilePath() {
+	    return pdfFilePath;
+	}
+
+	public void setPdfFilePath(String pdfFilePath) {
+	    this.pdfFilePath = pdfFilePath;
+	}
+
+	public LocalDateTime getPdfGeneratedAt() {
+	    return pdfGeneratedAt;
+	}
+
+	public void setPdfGeneratedAt(LocalDateTime pdfGeneratedAt) {
+	    this.pdfGeneratedAt = pdfGeneratedAt;
+	}
+
 }

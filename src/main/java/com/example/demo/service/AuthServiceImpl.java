@@ -1,4 +1,3 @@
-
 package com.example.demo.service;
 
 import java.util.Locale;
@@ -54,6 +53,14 @@ public class AuthServiceImpl implements AuthService {
                                 "Invalid email or password"));
 
         System.out.println("LOGIN USER FOUND: " + user.getEmail());
+
+        // ═══════════════════════════════════════════════════════
+        // ✅ Deactivated (INACTIVE) युजरला लॉगिन ब्लॉक करण्यासाठी
+        // ═══════════════════════════════════════════════════════
+        if ("INACTIVE".equalsIgnoreCase(user.getStatus())) {
+            throw new RuntimeException(
+                    "Your account has been deactivated. Please contact your Admin.");
+        }
 
         boolean passwordMatches = passwordEncoder.matches(
                 request.getPassword(),

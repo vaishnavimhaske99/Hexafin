@@ -20,7 +20,10 @@ public interface UserRepository extends JpaRepository<User, Long> {
     List<User> findByRoleEntity_Id(Long roleId);
 
     long countByRole(UserRole role);
+    List<User> findByStatus(String status);
 
+ // Login च्या वेळी फक्त ACTIVE युजर शोधण्यासाठी:
+ Optional<User> findByEmailAndStatus(String email, String status);
     // ✅ hierarchy support
     List<User> findByReportsTo_Id(Long reportsToId);
 

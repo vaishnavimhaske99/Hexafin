@@ -78,6 +78,11 @@ public final class LeadMapper {
         dto.setStatus(lead.getStatus());
         dto.setDescription(lead.getDescription());
 
+        // Raw Lead Information
+        dto.setRaw(lead.isRaw());
+        dto.setImportStatus(lead.getImportStatus());
+        dto.setRawData(lead.getRawData());
+
         // Audit Information
         dto.setCreatedAt(lead.getCreatedAt());
         dto.setUpdatedAt(lead.getUpdatedAt());

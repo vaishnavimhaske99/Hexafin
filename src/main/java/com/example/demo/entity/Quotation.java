@@ -31,10 +31,15 @@ public class Quotation {
     private Integer revisionNumber;
 
     // Lead
-    @ManyToOne
-    @JoinColumn(name = "lead_id", nullable = false)
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "lead_id", nullable = true)
     private Lead lead;
-
+    
+    
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "customer_id", nullable = true)
+    private Customer customer;
+    
     // Created By
     @ManyToOne
     @JoinColumn(name = "created_by")
@@ -100,7 +105,11 @@ public class Quotation {
 
     @Column(nullable = false)
     private LocalDateTime updatedAt;
+    @Column(name = "pdf_file_path", length = 1000)
+    private String pdfFilePath;
 
+    @Column(name = "pdf_generated_at")
+    private LocalDateTime pdfGeneratedAt;
     public Quotation() {
     }
 
@@ -113,7 +122,13 @@ public class Quotation {
     public void setId(Long id) {
         this.id = id;
     }
+    public Customer getCustomer() {
+        return customer;
+    }
 
+    public void setCustomer(Customer customer) {
+        this.customer = customer;
+    }
     public String getQuotationNumber() {
         return quotationNumber;
     }
@@ -320,5 +335,20 @@ public class Quotation {
 
     public void setUpdatedAt(LocalDateTime updatedAt) {
         this.updatedAt = updatedAt;
+    }
+    public String getPdfFilePath() {
+        return pdfFilePath;
+    }
+
+    public void setPdfFilePath(String pdfFilePath) {
+        this.pdfFilePath = pdfFilePath;
+    }
+
+    public LocalDateTime getPdfGeneratedAt() {
+        return pdfGeneratedAt;
+    }
+
+    public void setPdfGeneratedAt(LocalDateTime pdfGeneratedAt) {
+        this.pdfGeneratedAt = pdfGeneratedAt;
     }
 }

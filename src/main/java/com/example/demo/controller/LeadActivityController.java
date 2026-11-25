@@ -1,3 +1,4 @@
+
 package com.example.demo.controller;
 
 import java.util.List;
@@ -23,46 +24,52 @@ public class LeadActivityController {
 
     public LeadActivityController(
             LeadActivityService leadActivityService) {
-
         this.leadActivityService = leadActivityService;
     }
 
+    // CREATE ACTIVITY
     @PostMapping("/{leadId}/activities")
     public LeadActivityResponseDTO createActivity(
             @PathVariable Long leadId,
             @RequestBody LeadActivityRequestDTO request) {
 
-        return leadActivityService.createActivity(
-                leadId,
-                request);
+        return leadActivityService.createActivity(leadId, request);
     }
 
+    // GET ACTIVITIES BY LEAD ID
     @GetMapping("/{leadId}/activities")
     public List<LeadActivityResponseDTO> getActivitiesByLeadId(
             @PathVariable Long leadId) {
 
-        return leadActivityService
-                .getActivitiesByLeadId(leadId);
+        return leadActivityService.getActivitiesByLeadId(leadId);
     }
 
-    @GetMapping("/activities/{id}")
+    // GET TODAY'S ACTIVITIES OF ALL USERS
+    @GetMapping("/activities/today")
+    public List<LeadActivityResponseDTO> getTodaysActivities() {
+
+        return leadActivityService.getTodaysActivities();
+    }
+
+    // GET ACTIVITY BY ID (NUMERIC ID ONLY)
+    @GetMapping("/activities/{id:\\d+}")
     public LeadActivityResponseDTO getActivityById(
             @PathVariable Long id) {
 
-        return leadActivityService
-                .getActivityById(id);
+        return leadActivityService.getActivityById(id);
     }
 
-    @PutMapping("/activities/{id}")
+    // UPDATE ACTIVITY (NUMERIC ID ONLY)
+    @PutMapping("/activities/{id:\\d+}")
     public LeadActivityResponseDTO updateActivity(
             @PathVariable Long id,
             @RequestBody LeadActivityRequestDTO request) {
 
-        return leadActivityService
-                .updateActivity(id, request);
+        return leadActivityService.updateActivity(id, request);
     }
-   
-    @DeleteMapping("/activities/{id}")
+
+    // DELETE ACTIVITY (NUMERIC ID ONLY)
+    @DeleteMapping("/activities/{id:\\d+}")
     public void deleteActivity(
             @PathVariable Long id) {
 

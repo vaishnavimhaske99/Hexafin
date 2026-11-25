@@ -49,7 +49,21 @@ public class UserController {
     public List<UserResponseDTO> getUsersByReportsTo(@PathVariable Long teamLeadId) {
         return userService.findByReportsToId(teamLeadId);
     }
+ // UserController.java मध्ये हे ऍड करा:
 
+    @PutMapping("/{id}/deactivate")
+    @PreAuthorize("hasRole('ADMIN')") // फक्त ॲडमिन करू शकतो
+    public UserResponseDTO deactivateUser(
+            @PathVariable Long id,
+            @RequestParam(required = false, defaultValue = "No Reason") String reason) {
+        return userService.deactivateUser(id, reason);
+    }
+
+    @PutMapping("/{id}/reactivate")
+    @PreAuthorize("hasRole('ADMIN')")
+    public UserResponseDTO reactivateUser(@PathVariable Long id) {
+        return userService.reactivateUser(id);
+    }
     // 🔥 MANAGER - team members
     @GetMapping("/team")
     @PreAuthorize("hasRole('MANAGER')")

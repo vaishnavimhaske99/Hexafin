@@ -58,7 +58,17 @@ public class Lead {
 
     private String pincode;
 
-    // Lead Source
+    @Column(name = "raw_data", columnDefinition = "LONGTEXT")
+    private String rawData;
+    public String getRawData() {
+		return rawData;
+	}
+
+	public void setRawData(String rawData) {
+		this.rawData = rawData;
+	}
+
+	// Lead Source
     @Enumerated(EnumType.STRING)
     @Column(name = "source")
     private LeadSource source;
@@ -86,6 +96,14 @@ public class Lead {
     // Additional Information
     @Column(name = "description")
     private String description;
+
+    // Raw Lead Import Fields
+    @Enumerated(EnumType.STRING)
+    @Column(name = "import_status")
+    private LeadImportStatus importStatus = LeadImportStatus.IMPORTED;
+
+    @Column(name = "is_raw", nullable = false)
+    private boolean raw = false;
 
     // Audit Fields
     @Column(name = "created_at", updatable = false)
@@ -237,6 +255,22 @@ public class Lead {
 
     public void setDescription(String description) {
         this.description = description;
+    }
+
+    public LeadImportStatus getImportStatus() {
+        return importStatus;
+    }
+
+    public void setImportStatus(LeadImportStatus importStatus) {
+        this.importStatus = importStatus;
+    }
+
+    public boolean isRaw() {
+        return raw;
+    }
+
+    public void setRaw(boolean raw) {
+        this.raw = raw;
     }
 
     public LocalDateTime getCreatedAt() {

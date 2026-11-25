@@ -3,9 +3,10 @@ package com.example.demo.service;
 
 import java.util.List;
 
-import com.example.demo.dto.AssignLeadRequestDTO;
+
 import com.example.demo.dto.LeadRequestDTO;
 import com.example.demo.dto.LeadResponseDTO;
+import com.example.demo.entity.LeadImportStatus;
 
 public interface LeadService {
 
@@ -17,7 +18,9 @@ public interface LeadService {
 
     // Get a specific lead by ID
     LeadResponseDTO getLeadById(Long id);
+
     List<LeadResponseDTO> getLeadsByAssignedTo(Long userId);
+
     // Update an existing lead
     LeadResponseDTO updateLead(Long id, LeadRequestDTO request);
 
@@ -32,6 +35,14 @@ public interface LeadService {
 
     // Admin: Get leads assigned to a selected Sales User
     List<LeadResponseDTO> getLeadsBySalesUser(Long userId);
-    
+
     List<LeadResponseDTO> getTeamLeads(Long supervisorId);
+
+    // Raw Lead management
+    List<LeadResponseDTO> getRawLeads();
+
+    List<LeadResponseDTO> getRawLeadsByImportStatus(
+            LeadImportStatus importStatus);
+
+    long countRawLeads();
 }

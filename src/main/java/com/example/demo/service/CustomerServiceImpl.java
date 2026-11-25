@@ -35,7 +35,7 @@ public class CustomerServiceImpl implements CustomerService {
     private final CustomerRepository customerRepository;
     private final LeadRepository leadRepository;
     private final UserRepository userRepository;
-
+    private final QuotationService quotationService;
     // ✅ NEW — file storage directory
     @Value("${app.upload.dir:uploads}")
     private String uploadDir;
@@ -43,12 +43,14 @@ public class CustomerServiceImpl implements CustomerService {
     public CustomerServiceImpl(
             CustomerRepository customerRepository,
             LeadRepository leadRepository,
-            UserRepository userRepository) {
+            UserRepository userRepository,
+            QuotationService quotationService) {
+
         this.customerRepository = customerRepository;
         this.leadRepository = leadRepository;
         this.userRepository = userRepository;
+        this.quotationService = quotationService;
     }
-
     // ═══════════════════════════════════════════════════════
     // ✅ CONVERT LEAD TO CUSTOMER (UNCHANGED)
     // ═══════════════════════════════════════════════════════
@@ -167,7 +169,7 @@ public class CustomerServiceImpl implements CustomerService {
         customer.setUpdatedAt(now);
 
         Customer saved = customerRepository.save(customer);
-
+        generateCustomerQuotationIfReady(saved);
         lead.setStatus(LeadStatus.WON);
         lead.setUpdatedAt(now);
         leadRepository.save(lead);
@@ -299,6 +301,9 @@ public class CustomerServiceImpl implements CustomerService {
         customer.setUpdatedAt(LocalDateTime.now());
 
         Customer saved = customerRepository.save(customer);
+        generateCustomerQuotationIfReady(saved);
+
+       
         return toResponseDTO(saved);
     }
 
@@ -742,5 +747,40 @@ public class CustomerServiceImpl implements CustomerService {
         dto.setUpdatedAt(c.getUpdatedAt());
 
         return dto;
+    }
+    
+    private void generateCustomerQuotationIfReady(Customer customer) {
+
+        // Customer must have a saved ID
+        if (customer.getId() == null) {
+            return;
+        }
+
+        // Check required loan details
+        boolean loanDetailsComplete =
+                customer.getLoanType() != null
+                && !customer.getLoanType().isBlank()
+                && customer.getLoanAmount() != null
+                && Double.isFinite(customer.getLoanAmount())
+                && customer.getLoanAmount() > 0
+                && customer.getInterestRate() != null
+                && Double.isFinite(customer.getInterestRate())
+                && customer.getInterestRate() >= 0
+                && customer.getTenureMonths() != null
+                && customer.getTenureMonths() > 0;
+
+        if (!loanDetailsComplete) {
+            return;
+        }
+
+        // Do not create duplicate initial quotations
+        if (!quotationService
+                .getQuotationsByCustomerId(customer.getId())
+                .isEmpty()) {
+            return;
+        }
+
+        // Automatically create DRAFT quotation
+        quotationService.createCustomerQuotation(customer.getId());
     }
 }

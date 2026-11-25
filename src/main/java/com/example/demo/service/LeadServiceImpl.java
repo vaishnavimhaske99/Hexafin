@@ -1,3 +1,4 @@
+
 package com.example.demo.service;
 
 import java.time.LocalDateTime;
@@ -14,7 +15,12 @@ import org.springframework.web.server.ResponseStatusException;
 import com.example.demo.dto.LeadRequestDTO;
 import com.example.demo.dto.LeadResponseDTO;
 import com.example.demo.entity.Lead;
+import com.example.demo.entity.LeadImportStatus;
 import com.example.demo.entity.LeadStatus;
+import com.example.demo.entity.NotificationCategory;
+import com.example.demo.entity.NotificationPriority;
+import com.example.demo.entity.NotificationRequestDTO;
+import com.example.demo.entity.NotificationType;
 import com.example.demo.entity.User;
 import com.example.demo.entity.UserRole;
 import com.example.demo.mapper.LeadMapper;
@@ -48,10 +54,10 @@ public class LeadServiceImpl implements LeadService {
         User loggedInUser = getAuthenticatedUser();
         UserRole role = loggedInUser.getRole();
 
-        // 🔥 ADMIN, MANAGER, TEAM_LEAD ला परवानगी
-        if (role != UserRole.ADMIN 
-                && role != UserRole.MANAGER 
+        if (role != UserRole.ADMIN
+                && role != UserRole.MANAGER
                 && role != UserRole.TEAM_LEAD) {
+
             throw new ResponseStatusException(
                     HttpStatus.FORBIDDEN,
                     "Only ADMIN, MANAGER or TEAM_LEAD can view Sales User leads"
@@ -60,45 +66,56 @@ public class LeadServiceImpl implements LeadService {
 
         if (userId == null || userId <= 0) {
             throw new ResponseStatusException(
-                    HttpStatus.BAD_REQUEST, "Valid Sales User ID is required");
+                    HttpStatus.BAD_REQUEST,
+                    "Valid Sales User ID is required"
+            );
         }
 
         User salesUser = userRepository.findById(userId)
-            .orElseThrow(() -> new ResponseStatusException(
-                HttpStatus.NOT_FOUND, "User not found with id: " + userId));
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND,
+                        "User not found with id: " + userId
+                ));
 
         if (salesUser.getRole() != UserRole.SALES) {
             throw new ResponseStatusException(
-                    HttpStatus.BAD_REQUEST, "Selected user is not a SALES user");
+                    HttpStatus.BAD_REQUEST,
+                    "Selected user is not a SALES user"
+            );
         }
 
-        // 🔥 TEAM_LEAD/MANAGER साठी hierarchy check
         if (role != UserRole.ADMIN) {
-            boolean isInMyTeam = isUnderUserHierarchy(salesUser, loggedInUser.getId());
+            boolean isInMyTeam =
+                    isUnderUserHierarchy(salesUser, loggedInUser.getId());
+
             if (!isInMyTeam) {
                 throw new ResponseStatusException(
-                    HttpStatus.FORBIDDEN,
-                    "This Sales User is not in your team"
+                        HttpStatus.FORBIDDEN,
+                        "This Sales User is not in your team"
                 );
             }
         }
 
         return leadRepository.findByAssignedTo_Id(userId)
-            .stream()
-            .map(LeadMapper::toResponseDTO)
-            .toList();
+                .stream()
+                .map(LeadMapper::toResponseDTO)
+                .toList();
     }
 
     // =========================================
-    // ✅ NEW: GET LEADS ASSIGNED TO ANY USER (with hierarchy check)
+    // GET LEADS ASSIGNED TO ANY USER
     // =========================================
     @Override
     public List<LeadResponseDTO> getLeadsByAssignedTo(Long userId) {
-        List<Lead> leads = leadRepository.findByAssignedTo_Id (userId);
+
+        List<Lead> leads =
+                leadRepository.findByAssignedTo_Id(userId);
+
         return leads.stream()
                 .map(LeadMapper::toResponseDTO)
                 .toList();
     }
+
     // =========================================
     // GET AUTHENTICATED USER
     // =========================================
@@ -143,47 +160,49 @@ public class LeadServiceImpl implements LeadService {
         );
     }
 
-    
     // =========================================
-    // GET TEAM LEADS (Manager / Team Lead)
+    // GET TEAM LEADS (MANAGER / TEAM_LEAD)
     // =========================================
     @Override
     @Transactional(readOnly = true)
     public List<LeadResponseDTO> getTeamLeads(Long supervisorId) {
-        
+
         User loggedInUser = getAuthenticatedUser();
 
-        // फक्त MANAGER किंवा TEAM_LEAD च लीड्स पाहू शकतात
-        if (loggedInUser.getRole() != UserRole.MANAGER 
+        if (loggedInUser.getRole() != UserRole.MANAGER
                 && loggedInUser.getRole() != UserRole.TEAM_LEAD) {
+
             throw new ResponseStatusException(
                     HttpStatus.FORBIDDEN,
                     "Only MANAGER or TEAM_LEAD can view team leads"
             );
         }
 
-        // जर supervisorId दिला नसेल तर स्वतःचा ID वापरा
-        Long actualSupervisorId = (supervisorId != null) ? supervisorId : loggedInUser.getId();
+        Long actualSupervisorId =
+                (supervisorId != null) ? supervisorId : loggedInUser.getId();
 
-        // 1. त्या supervisor खालील सगळे users शोधा
         List<User> allUsers = userRepository.findAll();
+
         java.util.Set<Long> teamIds = new java.util.HashSet<>();
         teamIds.add(actualSupervisorId);
 
         boolean changed;
+
         do {
             changed = false;
+
             for (User candidate : allUsers) {
                 if (candidate.getReportsTo() != null
                         && teamIds.contains(candidate.getReportsTo().getId())) {
+
                     if (teamIds.add(candidate.getId())) {
                         changed = true;
                     }
                 }
             }
+
         } while (changed);
 
-        // 2. त्या टीमला असाइन केलेले लीड्स फिल्टर करा
         return leadRepository.findAll()
                 .stream()
                 .filter(lead -> lead.getAssignedTo() != null
@@ -191,6 +210,7 @@ public class LeadServiceImpl implements LeadService {
                 .map(LeadMapper::toResponseDTO)
                 .toList();
     }
+
     // =========================================
     // CREATE LEAD
     // =========================================
@@ -265,12 +285,10 @@ public class LeadServiceImpl implements LeadService {
 
         Long loggedInUserId = loggedInUser.getId();
 
-        // SALES sees only their own assigned leads
         if (loggedInUser.getRole() == UserRole.SALES) {
             return leadRepository.findByAssignedTo_Id(loggedInUserId);
         }
 
-        // Include the logged-in user and all descendants
         List<User> allUsers = userRepository.findAll();
 
         java.util.Set<Long> visibleUserIds = new java.util.HashSet<>();
@@ -295,7 +313,6 @@ public class LeadServiceImpl implements LeadService {
 
         } while (changed);
 
-        // Return leads assigned to users in this hierarchy
         return leadRepository.findAll()
                 .stream()
                 .filter(lead ->
@@ -457,39 +474,62 @@ public class LeadServiceImpl implements LeadService {
     public LeadResponseDTO assignLead(Long leadId, Long assignedToId) {
 
         if (leadId == null || leadId <= 0) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Valid Lead ID is required");
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Valid Lead ID is required"
+            );
         }
+
         if (assignedToId == null || assignedToId <= 0) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Valid User ID is required");
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Valid User ID is required"
+            );
         }
 
         User loggedInUser = getAuthenticatedUser();
+
         if (loggedInUser.getRole() == null) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "User role is not configured");
+            throw new ResponseStatusException(
+                    HttpStatus.FORBIDDEN,
+                    "User role is not configured"
+            );
         }
 
         UserRole role = loggedInUser.getRole();
 
-        // फक्त ADMIN, MANAGER, TEAM_LEAD assign करू शकतात
-        if (role != UserRole.ADMIN && role != UserRole.MANAGER && role != UserRole.TEAM_LEAD) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN,
-                    "You are not allowed to assign leads");
+        if (role != UserRole.ADMIN
+                && role != UserRole.MANAGER
+                && role != UserRole.TEAM_LEAD) {
+
+            throw new ResponseStatusException(
+                    HttpStatus.FORBIDDEN,
+                    "You are not allowed to assign leads"
+            );
         }
 
         Lead lead = leadRepository.findById(leadId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Lead not found"));
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND,
+                        "Lead not found"
+                ));
 
         User targetUser = userRepository.findById(assignedToId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND,
+                        "User not found"
+                ));
 
-        // ADMIN कोणालाही assign करू शकतो
-        // MANAGER फक्त त्याच्या hierarchy मध्ये assign करू शकतो
-        // TEAM_LEAD फक्त त्याच्या hierarchy मध्ये assign करू शकतो
         if (role != UserRole.ADMIN) {
-            boolean belongsToHierarchy = isUnderUserHierarchy(targetUser, loggedInUser.getId());
+
+            boolean belongsToHierarchy =
+                    isUnderUserHierarchy(targetUser, loggedInUser.getId());
+
             if (!belongsToHierarchy) {
-                throw new ResponseStatusException(HttpStatus.FORBIDDEN,
-                        "You can assign leads only to users within your hierarchy");
+                throw new ResponseStatusException(
+                        HttpStatus.FORBIDDEN,
+                        "You can assign leads only to users within your hierarchy"
+                );
             }
         }
 
@@ -498,12 +538,27 @@ public class LeadServiceImpl implements LeadService {
 
         Lead updatedLead = leadRepository.save(lead);
 
-        notificationService.createNotification(
-                targetUser.getId(),
-                "New Lead Assigned",
-                "Lead #" + updatedLead.getId() + " has been assigned to you."
+        NotificationRequestDTO request = new NotificationRequestDTO();
+
+        request.setType(NotificationType.LEAD_ASSIGNED);
+        request.setCategory(NotificationCategory.SALES);
+        request.setPriority(NotificationPriority.NORMAL);
+
+        request.setTitle("New Lead Assigned");
+        request.setMessage(
+            "Lead #" + updatedLead.getId()
+            + " has been assigned to you."
         );
 
+        request.setReferenceType("LEAD");
+        request.setReferenceId(updatedLead.getId());
+        request.setActionUrl("/leads/" + updatedLead.getId());
+
+        notificationService.createNotification(
+            targetUser.getId(),
+            loggedInUser.getId(),
+            request
+        );
         return LeadMapper.toResponseDTO(updatedLead);
     }
 
@@ -577,5 +632,80 @@ public class LeadServiceImpl implements LeadService {
                 .map(LeadMapper::toResponseDTO)
                 .toList();
     }
-    
+
+    // =========================================
+    // RAW LEADS MANAGEMENT
+    // =========================================
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<LeadResponseDTO> getRawLeads() {
+
+        User loggedInUser = getAuthenticatedUser();
+
+        if (loggedInUser.getRole() != UserRole.ADMIN
+                && loggedInUser.getRole() != UserRole.MANAGER
+                && loggedInUser.getRole() != UserRole.TEAM_LEAD) {
+
+            throw new ResponseStatusException(
+                    HttpStatus.FORBIDDEN,
+                    "You are not authorized to view raw leads"
+            );
+        }
+
+        return leadRepository.findByRawTrue()
+                .stream()
+                .map(LeadMapper::toResponseDTO)
+                .toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<LeadResponseDTO> getRawLeadsByImportStatus(
+            LeadImportStatus importStatus) {
+
+        User loggedInUser = getAuthenticatedUser();
+
+        if (loggedInUser.getRole() != UserRole.ADMIN
+                && loggedInUser.getRole() != UserRole.MANAGER
+                && loggedInUser.getRole() != UserRole.TEAM_LEAD) {
+
+            throw new ResponseStatusException(
+                    HttpStatus.FORBIDDEN,
+                    "You are not authorized to view raw leads"
+            );
+        }
+
+        if (importStatus == null) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Import status is required"
+            );
+        }
+
+        return leadRepository
+                .findByRawTrueAndImportStatus(importStatus)
+                .stream()
+                .map(LeadMapper::toResponseDTO)
+                .toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public long countRawLeads() {
+
+        User loggedInUser = getAuthenticatedUser();
+
+        if (loggedInUser.getRole() != UserRole.ADMIN
+                && loggedInUser.getRole() != UserRole.MANAGER
+                && loggedInUser.getRole() != UserRole.TEAM_LEAD) {
+
+            throw new ResponseStatusException(
+                    HttpStatus.FORBIDDEN,
+                    "You are not authorized to count raw leads"
+            );
+        }
+
+        return leadRepository.countByRawTrue();
+    }
 }

@@ -1,13 +1,18 @@
+
 package com.example.demo.controller;
 
-import java.util.List;
-
-import org.springframework.security.core.Authentication;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import com.example.demo.dto.NotificationResponseDTO;
-import com.example.demo.entity.User;
+import com.example.demo.entity.NotificationCategory;
+import com.example.demo.entity.NotificationResponseDTO;
 import com.example.demo.service.NotificationService;
+
+import jakarta.validation.constraints.Min;
 
 @RestController
 @RequestMapping("/api/notifications")
@@ -15,94 +20,123 @@ public class NotificationController {
 
     private final NotificationService notificationService;
 
-    public NotificationController(
-            NotificationService notificationService) {
-
+    public NotificationController(NotificationService notificationService) {
         this.notificationService = notificationService;
     }
 
-    // =====================================================
-    // GET MY NOTIFICATIONS
-    // =====================================================
-
+    // Get all active notifications
     @GetMapping
-    public List<NotificationResponseDTO> getMyNotifications(
-            Authentication authentication) {
+    public ResponseEntity<Page<NotificationResponseDTO>> getNotifications(
+            @RequestParam Long userId,
+            @RequestParam(defaultValue = "0") @Min(0) int page,
+            @RequestParam(defaultValue = "20") @Min(1) int size) {
 
-        User user = (User) authentication.getPrincipal();
+        Pageable pageable = PageRequest.of(
+                page,
+                size,
+                Sort.by(Sort.Direction.DESC, "createdAt")
+        );
 
-        return notificationService.getMyNotifications(
-                user.getId()
+        return ResponseEntity.ok(
+                notificationService.getNotifications(userId, pageable)
         );
     }
 
-
-    // =====================================================
-    // GET MY UNREAD NOTIFICATIONS
-    // =====================================================
-
+    // Get unread notifications
     @GetMapping("/unread")
-    public List<NotificationResponseDTO> getUnreadNotifications(
-            Authentication authentication) {
+    public ResponseEntity<Page<NotificationResponseDTO>> getUnreadNotifications(
+            @RequestParam Long userId,
+            @RequestParam(defaultValue = "0") @Min(0) int page,
+            @RequestParam(defaultValue = "20") @Min(1) int size) {
 
-        User user = (User) authentication.getPrincipal();
+        Pageable pageable = PageRequest.of(
+                page,
+                size,
+                Sort.by(Sort.Direction.DESC, "createdAt")
+        );
 
-        return notificationService.getUnreadNotifications(
-                user.getId()
+        return ResponseEntity.ok(
+                notificationService.getUnreadNotifications(userId, pageable)
         );
     }
 
+    // Get unread notification count
+    @GetMapping("/unread/count")
+    public ResponseEntity<Long> getUnreadCount(
+            @RequestParam Long userId) {
 
-    // =====================================================
-    // GET UNREAD COUNT
-    // =====================================================
-
-    @GetMapping("/unread-count")
-    public long getUnreadCount(
-            Authentication authentication) {
-
-        User user = (User) authentication.getPrincipal();
-
-        return notificationService.getUnreadCount(
-                user.getId()
+        return ResponseEntity.ok(
+                notificationService.getUnreadCount(userId)
         );
     }
 
+    // Get notifications by category
+    @GetMapping("/category/{category}")
+    public ResponseEntity<Page<NotificationResponseDTO>> getNotificationsByCategory(
+            @RequestParam Long userId,
+            @PathVariable NotificationCategory category,
+            @RequestParam(defaultValue = "0") @Min(0) int page,
+            @RequestParam(defaultValue = "20") @Min(1) int size) {
 
-    // =====================================================
-    // MARK ONE AS READ
-    // =====================================================
+        Pageable pageable = PageRequest.of(
+                page,
+                size,
+                Sort.by(Sort.Direction.DESC, "createdAt")
+        );
 
+        return ResponseEntity.ok(
+                notificationService.getNotificationsByCategory(
+                        userId, category, pageable)
+        );
+    }
+
+    // Mark one notification as read
     @PutMapping("/{notificationId}/read")
-    public String markAsRead(
+    public ResponseEntity<NotificationResponseDTO> markAsRead(
             @PathVariable Long notificationId,
-            Authentication authentication) {
+            @RequestParam Long userId) {
 
-        User user = (User) authentication.getPrincipal();
-
-        notificationService.markAsRead(
-                notificationId,
-                user.getId()
+        return ResponseEntity.ok(
+                notificationService.markAsRead(notificationId, userId)
         );
-
-        return "Notification marked as read";
     }
 
-
-    // =====================================================
-    // MARK ALL AS READ
-    // =====================================================
-
+    // Mark all notifications as read
     @PutMapping("/read-all")
-    public String markAllAsRead(
-            Authentication authentication) {
+    public ResponseEntity<Integer> markAllAsRead(
+            @RequestParam Long userId) {
 
-        User user = (User) authentication.getPrincipal();
+        return ResponseEntity.ok(
+                notificationService.markAllAsRead(userId)
+        );
+    }
 
-        notificationService.markAllAsRead(
-                user.getId()
+    // Archive notification
+    @PutMapping("/{notificationId}/archive")
+    public ResponseEntity<Void> archiveNotification(
+            @PathVariable Long notificationId,
+            @RequestParam Long userId) {
+
+        notificationService.archiveNotification(notificationId, userId);
+
+        return ResponseEntity.noContent().build();
+    }
+
+    // Get archived notifications
+    @GetMapping("/archived")
+    public ResponseEntity<Page<NotificationResponseDTO>> getArchivedNotifications(
+            @RequestParam Long userId,
+            @RequestParam(defaultValue = "0") @Min(0) int page,
+            @RequestParam(defaultValue = "20") @Min(1) int size) {
+
+        Pageable pageable = PageRequest.of(
+                page,
+                size,
+                Sort.by(Sort.Direction.DESC, "createdAt")
         );
 
-        return "All notifications marked as read";
+        return ResponseEntity.ok(
+                notificationService.getArchivedNotifications(userId, pageable)
+        );
     }
 }

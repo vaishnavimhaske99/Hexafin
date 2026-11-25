@@ -1,7 +1,9 @@
 
 package com.example.demo.service;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.List;
 
 import org.springframework.security.core.Authentication;
@@ -158,6 +160,7 @@ public class LeadActivityServiceImpl implements LeadActivityService {
 
         return LeadActivityMapper.toResponseDTO(updatedActivity);
     }
+    
 
     // DELETE ACTIVITY
     @Override
@@ -171,4 +174,29 @@ public class LeadActivityServiceImpl implements LeadActivityService {
 
         leadActivityRepository.delete(activity);
     }
+    
+
+    // GET TODAY'S ACTIVITIES OF ALL USERS
+    @Override
+    @Transactional(readOnly = true)
+    public List<LeadActivityResponseDTO> getTodaysActivities() {
+
+        LocalDate today = LocalDate.now();
+
+        LocalDateTime startOfDay =
+                today.atStartOfDay();
+
+        LocalDateTime endOfDay =
+                today.atTime(LocalTime.MAX);
+
+        return leadActivityRepository
+                .findByActivityDateTimeBetweenOrderByActivityDateTimeDesc(
+                        startOfDay,
+                        endOfDay
+                )
+                .stream()
+                .map(LeadActivityMapper::toResponseDTO)
+                .toList();
+    }
+
 }

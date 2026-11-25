@@ -16,7 +16,11 @@ public interface QuotationService {
 
     QuotationResponseDTO getQuotationById(
             Long quotationId);
+    QuotationResponseDTO createCustomerQuotation(Long customerId);
 
+    QuotationResponseDTO generateCustomerQuotationPdf(Long quotationId);
+    
+    List<QuotationResponseDTO> getQuotationsByCustomerId(Long customerId);
     QuotationResponseDTO updateQuotation(
             Long quotationId,
             QuotationRequestDTO request);
