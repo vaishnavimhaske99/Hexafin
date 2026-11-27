@@ -1,3 +1,4 @@
+
 package com.example.demo.config;
 
 import java.util.Arrays;
@@ -18,8 +19,9 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 import com.example.demo.security.JwtAuthenticationFilter;
 import com.fasterxml.jackson.databind.ObjectMapper;
+
 @Configuration
-@EnableMethodSecurity(prePostEnabled = true)  // 🔥 prePostEnabled
+@EnableMethodSecurity(prePostEnabled = true)
 public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
@@ -32,81 +34,129 @@ public class SecurityConfig {
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
     }
+
     @Bean
     public ObjectMapper objectMapper() {
         return new ObjectMapper();
     }
+
     // CORS Configuration
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
+
         CorsConfiguration configuration = new CorsConfiguration();
+
         configuration.setAllowedOrigins(Arrays.asList(
-        	    "http://localhost:4200",
-        	    "https://crm.hexafin.com"
-        	));
-        configuration.setAllowedMethods(
-                Arrays.asList("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
+                "http://localhost:4200",
+                "https://crm.hexafin.com"
+        ));
+
+        configuration.setAllowedMethods(Arrays.asList(
+                "GET", "POST", "PUT", "PATCH",
+                "DELETE", "OPTIONS"
+        ));
+
         configuration.setAllowedHeaders(Arrays.asList("*"));
         configuration.setAllowCredentials(true);
 
-        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        UrlBasedCorsConfigurationSource source =
+                new UrlBasedCorsConfigurationSource();
+
         source.registerCorsConfiguration("/**", configuration);
+
         return source;
     }
 
     @Bean
-    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+    public SecurityFilterChain securityFilterChain(
+            HttpSecurity http) throws Exception {
 
         http
             .cors(cors -> cors.configurationSource(corsConfigurationSource()))
             .csrf(csrf -> csrf.disable())
+
             .sessionManagement(session ->
-                    session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                    session.sessionCreationPolicy(
+                            SessionCreationPolicy.STATELESS))
+
             .formLogin(form -> form.disable())
             .httpBasic(basic -> basic.disable())
 
             .authorizeHttpRequests(auth -> auth
 
-                // 🔓 PUBLIC — Login/Signup
+                // CORS preflight requests
+                .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+
+                // Login / Signup
                 .requestMatchers(HttpMethod.POST,
                         "/api/auth/login",
                         "/api/auth/signup"
                 ).permitAll()
 
-                // 🔓 PUBLIC — Leads (GET + POST) for development
-                .requestMatchers(HttpMethod.GET, "/api/leads", "/api/leads/**").permitAll()
-                .requestMatchers(HttpMethod.POST, "/api/leads", "/api/leads/import").permitAll()
-                .requestMatchers(HttpMethod.GET, "/api/dashboard/**").permitAll()
+                // Leads GET
+                .requestMatchers(HttpMethod.GET,
+                        "/api/leads",
+                        "/api/leads/**"
+                ).permitAll()
 
-                // 🔐 Own profile (any logged-in user)
-                .requestMatchers(HttpMethod.GET, "/api/users/me").authenticated()
+                // Lead creation
+                .requestMatchers(HttpMethod.POST,
+                        "/api/leads"
+                ).permitAll()
 
-                // 🔐 Manager team endpoint
-                .requestMatchers(HttpMethod.GET, "/api/users/team").hasRole("MANAGER")
+                // Bulk Lead Import - Preview and Save
+                .requestMatchers(HttpMethod.POST,
+                        "/api/leads/import",
+                        "/api/leads/import/**"
+                ).permitAll()
 
-                // 🔐 Hierarchy update — ADMIN only
-                .requestMatchers(HttpMethod.PUT, "/api/users/*/hierarchy").hasRole("ADMIN")
+                // Dashboard
+                .requestMatchers(HttpMethod.GET,
+                        "/api/dashboard/**"
+                ).permitAll()
 
-                // 🔐 Users list — ADMIN, MANAGER, TEAM_LEAD
-                .requestMatchers(HttpMethod.GET, "/api/users", "/api/users/")
-                    .hasAnyRole("ADMIN", "MANAGER", "TEAM_LEAD")
+                // Own profile
+                .requestMatchers(HttpMethod.GET,
+                        "/api/users/me"
+                ).authenticated()
 
-                // 🔐 Users/{id} — ADMIN, MANAGER, TEAM_LEAD
-                .requestMatchers(HttpMethod.GET, "/api/users/*")
-                    .hasAnyRole("ADMIN", "MANAGER", "TEAM_LEAD")
+                // Manager team
+                .requestMatchers(HttpMethod.GET,
+                        "/api/users/team"
+                ).hasRole("MANAGER")
 
-                // 🔐 Sales User चे Leads — ADMIN, MANAGER, TEAM_LEAD
-                .requestMatchers(HttpMethod.GET, "/api/leads/sales-user/*")
-                    .hasAnyRole("ADMIN", "MANAGER", "TEAM_LEAD")
+                // Hierarchy update
+                .requestMatchers(HttpMethod.PUT,
+                        "/api/users/*/hierarchy"
+                ).hasRole("ADMIN")
 
-                // 🔐 Lead Assign — ADMIN, MANAGER, TEAM_LEAD
-                .requestMatchers(HttpMethod.PUT, "/api/leads/*/assign/*")
-                    .hasAnyRole("ADMIN", "MANAGER", "TEAM_LEAD")
+                // Users list
+                .requestMatchers(HttpMethod.GET,
+                        "/api/users",
+                        "/api/users/"
+                ).hasAnyRole("ADMIN", "MANAGER", "TEAM_LEAD")
 
-                // 🔐 बाकी सगळं — authenticated
+                // Users by ID
+                .requestMatchers(HttpMethod.GET,
+                        "/api/users/*"
+                ).hasAnyRole("ADMIN", "MANAGER", "TEAM_LEAD")
+
+                // Sales User Leads
+                .requestMatchers(HttpMethod.GET,
+                        "/api/leads/sales-user/*"
+                ).hasAnyRole("ADMIN", "MANAGER", "TEAM_LEAD")
+
+                // Lead Assignment
+                .requestMatchers(HttpMethod.PUT,
+                        "/api/leads/*/assign/*"
+                ).hasAnyRole("ADMIN", "MANAGER", "TEAM_LEAD")
+
+                // Remaining API endpoints
                 .requestMatchers("/api/**").authenticated()
+
                 .requestMatchers("/api/locations/**").authenticated()
                 .requestMatchers("/api/notifications/**").authenticated()
+
                 .anyRequest().permitAll()
             )
 
