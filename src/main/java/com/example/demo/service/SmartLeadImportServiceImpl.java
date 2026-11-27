@@ -61,74 +61,154 @@ public class SmartLeadImportServiceImpl implements SmartLeadImportService {
 
     // ================= AUTOMATIC COLUMN MAPPING =================
 
-    private String identifyColumn(String header) {
 
-        String key = normalizeHeader(header);
+ // ================= AUTOMATIC COLUMN MAPPING =================
 
-        if (List.of("name", "fullname", "customername",
-                "contactname", "leadname").contains(key)) {
-            return "fullName";
-        }
+ private String identifyColumn(String header) {
 
-        if (List.of("firstname", "first", "givenname").contains(key)) {
-            return "firstName";
-        }
+     String key = normalizeHeader(header);
 
-        if (List.of("lastname", "last", "surname",
-                "familyname").contains(key)) {
-            return "lastName";
-        }
+     if (key.isBlank()) {
+         return null;
+     }
 
-        if (List.of("mobile", "mobileno", "mobilenumber",
-                "phone", "phonenumber", "contactnumber",
-                "contactno", "whatsapp").contains(key)) {
-            return "phone";
-        }
+     // 1. COMPANY NAME
+     if (List.of(
+             "company", "companyname", "businessname",
+             "organization", "organisation",
+             "organizationname", "organisationname",
+             "firm", "firmname", "business"
+     ).contains(key)) {
+         return "companyName";
+     }
 
-        if (List.of("email", "emailid", "emailaddress",
-                "mailid").contains(key)) {
-            return "email";
-        }
+     // 2. FULL / CUSTOMER / APPLICANT NAME
+     if (List.of(
+             "name", "fullname", "customername",
+             "contactname", "leadname", "legalname",
+             "applicantname", "borrowername",
+             "clientname", "personname",
+             "individualname", "proprietorname",
+             "ownername", "contactperson",
+             "customerfullname", "applicantfullname",
+             "borrowerfullname", "clientfullname"
+     ).contains(key)) {
+         return "fullName";
+     }
 
-        if (List.of("company", "companyname", "organization",
-                "organisation", "business").contains(key)) {
-            return "companyName";
-        }
+     // 3. FIRST NAME
+     if (List.of(
+             "firstname", "first", "givenname",
+             "fname", "forename"
+     ).contains(key)) {
+         return "firstName";
+     }
 
-        if (List.of("address", "addressline1",
-                "streetaddress").contains(key)) {
-            return "addressLine1";
-        }
+     // 4. LAST NAME
+     if (List.of(
+             "lastname", "last", "surname",
+             "familyname", "lname"
+     ).contains(key)) {
+         return "lastName";
+     }
 
-        if (List.of("addressline2", "landmark").contains(key)) {
-            return "addressLine2";
-        }
+     // 5. MOBILE / PHONE / CONTACT NUMBER
+     if (List.of(
+             "mobile", "mobileno", "mobilenumber",
+             "mob", "mobno", "mobnum", "mobnumber",
+             "mobilenum", "phone", "phoneno",
+             "phonenumber", "contactnumber",
+             "contactno", "contactnum",
+             "whatsapp", "whatsappno",
+             "whatsappnumber", "cell", "cellphone",
+             "telephone", "telephoneno",
+             "primarymobile", "primaryphone",
+             "alternatemobile", "alternatenumber"
+     ).contains(key)
+             || key.contains("mobile")
+             || key.contains("phone")
+             || key.contains("telephone")
+             || key.startsWith("mob")
+             || key.endsWith("contactnumber")
+             || key.endsWith("contactno")) {
+         return "phone";
+     }
 
-        if (key.equals("city")) return "city";
-        if (key.equals("state")) return "state";
-        if (key.equals("country")) return "country";
+     // 6. EMAIL
+     if (List.of(
+             "email", "emailid", "emailaddress",
+             "mail", "mailid", "emailaddr",
+             "primaryemail", "contactemail"
+     ).contains(key)
+             || key.contains("email")) {
+         return "email";
+     }
 
-        if (List.of("pincode", "postalcode", "zipcode",
-                "zip").contains(key)) {
-            return "pincode";
-        }
+     // 7. ADDRESS
+     if (List.of(
+             "address", "addressline1",
+             "streetaddress", "residentialaddress",
+             "officeaddress", "permanentaddress"
+     ).contains(key)) {
+         return "addressLine1";
+     }
 
-        if (List.of("source", "leadsource",
-                "enquirysource").contains(key)) {
-            return "source";
-        }
+     if (List.of(
+             "addressline2", "landmark",
+             "area", "locality"
+     ).contains(key)) {
+         return "addressLine2";
+     }
 
-        if (List.of("status", "leadstatus").contains(key)) {
-            return "status";
-        }
+     // 8. LOCATION
+     if (List.of("city", "town").contains(key)) {
+         return "city";
+     }
 
-        if (List.of("description", "remarks", "notes",
-                "comments").contains(key)) {
-            return "description";
-        }
+     if (List.of("state", "province").contains(key)) {
+         return "state";
+     }
 
-        return null;
-    }
+     if (List.of("country", "nation").contains(key)) {
+         return "country";
+     }
+
+     if (List.of(
+             "pincode", "postalcode",
+             "zipcode", "zip", "postcode"
+     ).contains(key)) {
+         return "pincode";
+     }
+
+     // 9. LEAD SOURCE
+     if (List.of(
+             "source", "leadsource",
+             "enquirysource", "referencesource"
+     ).contains(key)) {
+         return "source";
+     }
+
+     // 10. STATUS
+     if (List.of(
+             "status", "leadstatus",
+             "enquirystatus"
+     ).contains(key)) {
+         return "status";
+     }
+
+     // 11. DESCRIPTION / REMARKS
+     if (List.of(
+             "description", "remarks", "notes",
+             "comments", "remark", "comment",
+             "requirement", "customerrequirement"
+     ).contains(key)) {
+         return "description";
+     }
+
+     // Unknown columns will be preserved in rawData
+     return null;
+ }
+
 
     // ================= READ EXCEL / CSV =================
 
@@ -322,35 +402,8 @@ public class SmartLeadImportServiceImpl implements SmartLeadImportService {
 
     private String validateRow(Map<String, String> mapped) {
 
-        String firstName = mapped.get("firstName");
-        String email = mapped.get("email");
-        String phone = mapped.get("phone");
-
-        if (firstName == null || firstName.isBlank()) {
-            return "Name is required";
-        }
-
-        if ((email == null || email.isBlank()) &&
-                (phone == null || phone.isBlank())) {
-            return "Email or Mobile is required";
-        }
-
-        if (email != null && !email.isBlank() &&
-                !email.matches(
-                    "^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$")) {
-            return "Invalid email format";
-        }
-
-        if (phone != null && !phone.isBlank()) {
-
-            String digits = phone.replaceAll("\\D", "");
-
-            if (digits.length() < 7 || digits.length() > 15) {
-                return "Invalid mobile number";
-            }
-        }
-
-        return null;
+    	 return null;
+    
     }
 
     // ================= DUPLICATE CHECK =================
@@ -407,8 +460,7 @@ public class SmartLeadImportServiceImpl implements SmartLeadImportService {
         List<Map<String, String>> previewRows = new ArrayList<>();
         List<String> warnings = new ArrayList<>();
 
-        Set<String> importedEmails = new HashSet<>();
-        Set<String> importedPhones = new HashSet<>();
+
 
         int validRows = 0;
         int invalidRows = 0;
@@ -448,12 +500,7 @@ public class SmartLeadImportServiceImpl implements SmartLeadImportService {
                 continue;
             }
 
-            if (isDuplicate(mapped, importedEmails, importedPhones)) {
-                duplicateRows++;
-                warnings.add("Row " + rowNumber +
-                        ": Duplicate lead");
-                continue;
-            }
+   
 
             validRows++;
         }
