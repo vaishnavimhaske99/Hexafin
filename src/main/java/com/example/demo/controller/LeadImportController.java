@@ -35,10 +35,7 @@ public class LeadImportController {
     }
 
     // SMART IMPORT SAVE RAW
-    @PostMapping(
-        value = "/save-raw",
-        consumes = MediaType.MULTIPART_FORM_DATA_VALUE
-    )
+    @PostMapping("/save-raw")
     public ResponseEntity<LeadImportResultDTO> saveRawLeads(
             @RequestParam("file") MultipartFile file) {
 
