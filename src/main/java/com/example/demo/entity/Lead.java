@@ -18,6 +18,8 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
+import com.example.demo.entity.LeadImportBatch;
+import jakarta.persistence.FetchType;
 
 @Entity
 @Table(name = "leads")
@@ -116,7 +118,17 @@ public class Lead {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "assigned_to")
     private User assignedTo;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "import_batch_id")
+    private LeadImportBatch importBatch;
 
+    public LeadImportBatch getImportBatch() {
+        return importBatch;
+    }
+
+    public void setImportBatch(LeadImportBatch importBatch) {
+        this.importBatch = importBatch;
+    }
     // Getters and Setters
 
     public Long getId() {

@@ -1,8 +1,13 @@
 
 package com.example.demo.controller;
 
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -15,14 +20,22 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
+
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 import com.example.demo.dto.AssignLeadRequestDTO;
 import com.example.demo.dto.LeadRequestDTO;
 import com.example.demo.dto.LeadResponseDTO;
+import com.example.demo.entity.Lead;
+import com.example.demo.entity.LeadImportBatch;
 import com.example.demo.entity.LeadImportStatus;
 import com.example.demo.entity.User;
+import com.example.demo.repository.LeadImportBatchRepository;
+import com.example.demo.repository.LeadRepository;
 import com.example.demo.service.LeadService;
 
 import jakarta.validation.Valid;
@@ -32,10 +45,25 @@ import jakarta.validation.Valid;
 public class LeadController {
 
     private final LeadService leadService;
+    private final LeadRepository leadRepository;
+    private final LeadImportBatchRepository batchRepository;
+    private final ObjectMapper objectMapper;
 
-    public LeadController(LeadService leadService) {
+    public LeadController(
+            LeadService leadService,
+            LeadRepository leadRepository,
+            LeadImportBatchRepository batchRepository,
+            ObjectMapper objectMapper) {
+
         this.leadService = leadService;
+        this.leadRepository = leadRepository;
+        this.batchRepository = batchRepository;
+        this.objectMapper = objectMapper;
     }
+
+    // =========================================
+    // ASSIGN LEAD - REQUEST BODY
+    // =========================================
     @PutMapping("/{leadId}/assign")
     public ResponseEntity<?> assignLead(
             @PathVariable Long leadId,
@@ -48,6 +76,7 @@ public class LeadController {
                 )
         );
     }
+
     // =========================================
     // GET LEADS ASSIGNED TO SELECTED USER
     // =========================================
@@ -95,7 +124,6 @@ public class LeadController {
     // TEMPORARY PUBLIC FOR LOCAL TESTING
     // =========================================
     @PostMapping
-    // @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
     public LeadResponseDTO createLead(
             @Valid @RequestBody LeadRequestDTO request) {
 
@@ -108,6 +136,7 @@ public class LeadController {
     @GetMapping
     @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'TEAM_LEAD', 'SALES')")
     public List<LeadResponseDTO> getAllLeads() {
+
         return leadService.getAllLeads();
     }
 
@@ -117,6 +146,7 @@ public class LeadController {
     @GetMapping("/{id}")
     @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'TEAM_LEAD', 'SALES')")
     public LeadResponseDTO getLeadById(@PathVariable Long id) {
+
         return leadService.getLeadById(id);
     }
 
@@ -138,6 +168,7 @@ public class LeadController {
     @DeleteMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")
     public void deleteLead(@PathVariable Long id) {
+
         leadService.deleteLead(id);
     }
 
@@ -219,5 +250,96 @@ public class LeadController {
     public long countRawLeads() {
 
         return leadService.countRawLeads();
+    }
+
+    // =========================================
+    // GET BATCH-WISE RAW LEADS WITH PAGINATION
+    // =========================================
+    @GetMapping("/import-batches/{batchId}/leads")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'TEAM_LEAD')")
+    public Map<String, Object> getBatchLeads(
+            @PathVariable Long batchId,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "25") int size) {
+
+        if (page < 0 || size < 1 || size > 100) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Invalid page or size"
+            );
+        }
+
+        LeadImportBatch batch = batchRepository.findById(batchId)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND,
+                        "Import batch not found"
+                ));
+
+        Pageable pageable = PageRequest.of(page, size);
+
+        Page<Lead> leadPage =
+                leadRepository.findByImportBatch_Id(batchId, pageable);
+
+        List<Map<String, Object>> rows = leadPage.getContent()
+                .stream()
+                .map(lead -> {
+
+                    Map<String, Object> row = new LinkedHashMap<>();
+
+                    row.put("leadId", lead.getId());
+
+                    try {
+                        Map<String, Object> rawData =
+                                objectMapper.readValue(
+                                        lead.getRawData(),
+                                        new TypeReference<Map<String, Object>>() {}
+                                );
+
+                        row.put("rawData", rawData);
+
+                    } catch (Exception e) {
+                        row.put("rawData", new LinkedHashMap<>());
+                    }
+
+                    row.put(
+                            "assignedToId",
+                            lead.getAssignedTo() != null
+                                    ? lead.getAssignedTo().getId()
+                                    : null
+                    );
+                    row.put(
+                    	    "assignedToName",
+                    	    lead.getAssignedTo() != null
+                    	        ? lead.getAssignedTo().getFirstName() + " "
+                    	            + lead.getAssignedTo().getLastName()
+                    	        : null
+                    	);
+                    return row;
+                })
+                .toList();
+
+        List<String> headers;
+
+        try {
+            headers = objectMapper.readValue(
+                    batch.getHeadersJson(),
+                    new TypeReference<List<String>>() {}
+            );
+        } catch (Exception e) {
+            headers = List.of();
+        }
+
+        Map<String, Object> response = new LinkedHashMap<>();
+
+        response.put("batchId", batch.getId());
+        response.put("fileName", batch.getFileName());
+        response.put("headers", headers);
+        response.put("rows", rows);
+        response.put("currentPage", leadPage.getNumber());
+        response.put("pageSize", leadPage.getSize());
+        response.put("totalElements", leadPage.getTotalElements());
+        response.put("totalPages", leadPage.getTotalPages());
+
+        return response;
     }
 }

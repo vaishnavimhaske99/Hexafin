@@ -10,7 +10,7 @@ public class LeadImportResultDTO {
     private int duplicateCount;
     private int failedCount;
     private int skippedCount;
-
+    private Long batchId;
     private List<String> errors;
 
     private String message;
@@ -49,6 +49,13 @@ public class LeadImportResultDTO {
 
     public int getSkippedCount() {
         return skippedCount;
+    }
+    public Long getBatchId() {
+        return batchId;
+    }
+
+    public void setBatchId(Long batchId) {
+        this.batchId = batchId;
     }
 
     public void setSkippedCount(int skippedCount) {

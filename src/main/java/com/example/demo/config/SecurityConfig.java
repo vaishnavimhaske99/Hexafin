@@ -52,12 +52,30 @@ public class SecurityConfig {
         ));
 
         configuration.setAllowedMethods(Arrays.asList(
-                "GET", "POST", "PUT", "PATCH",
-                "DELETE", "OPTIONS"
+                "GET",
+                "POST",
+                "PUT",
+                "PATCH",
+                "DELETE",
+                "OPTIONS"
         ));
 
-        configuration.setAllowedHeaders(Arrays.asList("*"));
+        configuration.setAllowedHeaders(Arrays.asList(
+                "Authorization",
+                "Content-Type",
+                "Accept",
+                "Origin",
+                "X-Requested-With"
+        ));
+
+        configuration.setExposedHeaders(Arrays.asList(
+                "Authorization",
+                "Content-Disposition"
+        ));
+
         configuration.setAllowCredentials(true);
+
+        configuration.setMaxAge(3600L);
 
         UrlBasedCorsConfigurationSource source =
                 new UrlBasedCorsConfigurationSource();
@@ -72,97 +90,135 @@ public class SecurityConfig {
             HttpSecurity http) throws Exception {
 
         http
-            .cors(cors -> cors.configurationSource(corsConfigurationSource()))
+            .cors(cors ->
+                cors.configurationSource(corsConfigurationSource())
+            )
+
             .csrf(csrf -> csrf.disable())
 
             .sessionManagement(session ->
-                    session.sessionCreationPolicy(
-                            SessionCreationPolicy.STATELESS))
+                session.sessionCreationPolicy(
+                    SessionCreationPolicy.STATELESS
+                )
+            )
 
             .formLogin(form -> form.disable())
+
             .httpBasic(basic -> basic.disable())
 
             .authorizeHttpRequests(auth -> auth
 
-                // CORS preflight requests
-                .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+                // CORS Preflight
+                .requestMatchers(
+                    HttpMethod.OPTIONS,
+                    "/**"
+                ).permitAll()
 
                 // Login / Signup
-                .requestMatchers(HttpMethod.POST,
-                        "/api/auth/login",
-                        "/api/auth/signup"
+                .requestMatchers(
+                    HttpMethod.POST,
+                    "/api/auth/login",
+                    "/api/auth/signup"
                 ).permitAll()
 
                 // Leads GET
-                .requestMatchers(HttpMethod.GET,
-                        "/api/leads",
-                        "/api/leads/**"
+                .requestMatchers(
+                    HttpMethod.GET,
+                    "/api/leads",
+                    "/api/leads/**"
                 ).permitAll()
 
-                // Lead creation
-                .requestMatchers(HttpMethod.POST,
-                        "/api/leads"
+                // Lead Creation
+                .requestMatchers(
+                    HttpMethod.POST,
+                    "/api/leads"
                 ).permitAll()
 
                 // Bulk Lead Import - Preview and Save
-                .requestMatchers(HttpMethod.POST,
-                        "/api/leads/import",
-                        "/api/leads/import/**"
+                .requestMatchers(
+                    HttpMethod.POST,
+                    "/api/leads/import",
+                    "/api/leads/import/**"
                 ).permitAll()
 
                 // Dashboard
-                .requestMatchers(HttpMethod.GET,
-                        "/api/dashboard/**"
+                .requestMatchers(
+                    HttpMethod.GET,
+                    "/api/dashboard/**"
                 ).permitAll()
 
-                // Own profile
-                .requestMatchers(HttpMethod.GET,
-                        "/api/users/me"
+                // Own Profile
+                .requestMatchers(
+                    HttpMethod.GET,
+                    "/api/users/me"
                 ).authenticated()
 
-                // Manager team
-                .requestMatchers(HttpMethod.GET,
-                        "/api/users/team"
+                // Manager Team
+                .requestMatchers(
+                    HttpMethod.GET,
+                    "/api/users/team"
                 ).hasRole("MANAGER")
 
-                // Hierarchy update
-                .requestMatchers(HttpMethod.PUT,
-                        "/api/users/*/hierarchy"
+                // Hierarchy Update
+                .requestMatchers(
+                    HttpMethod.PUT,
+                    "/api/users/*/hierarchy"
                 ).hasRole("ADMIN")
 
-                // Users list
-                .requestMatchers(HttpMethod.GET,
-                        "/api/users",
-                        "/api/users/"
-                ).hasAnyRole("ADMIN", "MANAGER", "TEAM_LEAD")
+                // Users List
+                .requestMatchers(
+                    HttpMethod.GET,
+                    "/api/users",
+                    "/api/users/"
+                ).hasAnyRole(
+                    "ADMIN",
+                    "MANAGER",
+                    "TEAM_LEAD"
+                )
 
-                // Users by ID
-                .requestMatchers(HttpMethod.GET,
-                        "/api/users/*"
-                ).hasAnyRole("ADMIN", "MANAGER", "TEAM_LEAD")
+                // Users By ID
+                .requestMatchers(
+                    HttpMethod.GET,
+                    "/api/users/*"
+                ).hasAnyRole(
+                    "ADMIN",
+                    "MANAGER",
+                    "TEAM_LEAD"
+                )
 
                 // Sales User Leads
-                .requestMatchers(HttpMethod.GET,
-                        "/api/leads/sales-user/*"
-                ).hasAnyRole("ADMIN", "MANAGER", "TEAM_LEAD")
+                .requestMatchers(
+                    HttpMethod.GET,
+                    "/api/leads/sales-user/*"
+                ).hasAnyRole(
+                    "ADMIN",
+                    "MANAGER",
+                    "TEAM_LEAD"
+                )
 
                 // Lead Assignment
-                .requestMatchers(HttpMethod.PUT,
-                        "/api/leads/*/assign/*"
-                ).hasAnyRole("ADMIN", "MANAGER", "TEAM_LEAD")
+                .requestMatchers(
+                    HttpMethod.PUT,
+                    "/api/leads/*/assign/*"
+                ).hasAnyRole(
+                    "ADMIN",
+                    "MANAGER",
+                    "TEAM_LEAD"
+                )
 
-                // Remaining API endpoints
+                // Remaining APIs
                 .requestMatchers("/api/**").authenticated()
 
                 .requestMatchers("/api/locations/**").authenticated()
+
                 .requestMatchers("/api/notifications/**").authenticated()
 
                 .anyRequest().permitAll()
             )
 
             .addFilterBefore(
-                    jwtAuthenticationFilter,
-                    UsernamePasswordAuthenticationFilter.class
+                jwtAuthenticationFilter,
+                UsernamePasswordAuthenticationFilter.class
             );
 
         return http.build();

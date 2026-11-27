@@ -6,12 +6,10 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.Set;
 
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVParser;
@@ -28,28 +26,35 @@ import org.springframework.web.multipart.MultipartFile;
 import com.example.demo.dto.LeadImportPreviewDTO;
 import com.example.demo.dto.LeadImportResultDTO;
 import com.example.demo.entity.Lead;
+import com.example.demo.entity.LeadImportBatch;
 import com.example.demo.entity.LeadImportStatus;
 import com.example.demo.entity.LeadSource;
 import com.example.demo.entity.LeadStatus;
 import com.example.demo.repository.LeadRepository;
+import com.example.demo.repository.LeadImportBatchRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 @Service
 public class SmartLeadImportServiceImpl implements SmartLeadImportService {
 
     private final LeadRepository leadRepository;
+    private final LeadImportBatchRepository batchRepository;
     private final ObjectMapper objectMapper;
 
     public SmartLeadImportServiceImpl(
             LeadRepository leadRepository,
+            LeadImportBatchRepository batchRepository,
             ObjectMapper objectMapper) {
+
         this.leadRepository = leadRepository;
+        this.batchRepository = batchRepository;
         this.objectMapper = objectMapper;
     }
 
     // ================= HEADER NORMALIZATION =================
 
     private String normalizeHeader(String header) {
+
         if (header == null) {
             return "";
         }
@@ -61,154 +66,138 @@ public class SmartLeadImportServiceImpl implements SmartLeadImportService {
 
     // ================= AUTOMATIC COLUMN MAPPING =================
 
+    private String identifyColumn(String header) {
 
- // ================= AUTOMATIC COLUMN MAPPING =================
+        String key = normalizeHeader(header);
 
- private String identifyColumn(String header) {
+        if (key.isBlank()) {
+            return null;
+        }
 
-     String key = normalizeHeader(header);
+        if (List.of(
+                "company", "companyname", "businessname",
+                "organization", "organisation",
+                "organizationname", "organisationname",
+                "firm", "firmname", "business"
+        ).contains(key)) {
+            return "companyName";
+        }
 
-     if (key.isBlank()) {
-         return null;
-     }
+        if (List.of(
+                "name", "fullname", "customername",
+                "contactname", "leadname", "legalname",
+                "applicantname", "borrowername",
+                "clientname", "personname",
+                "individualname", "proprietorname",
+                "ownername", "contactperson",
+                "customerfullname", "applicantfullname",
+                "borrowerfullname", "clientfullname"
+        ).contains(key)) {
+            return "fullName";
+        }
 
-     // 1. COMPANY NAME
-     if (List.of(
-             "company", "companyname", "businessname",
-             "organization", "organisation",
-             "organizationname", "organisationname",
-             "firm", "firmname", "business"
-     ).contains(key)) {
-         return "companyName";
-     }
+        if (List.of(
+                "firstname", "first", "givenname",
+                "fname", "forename"
+        ).contains(key)) {
+            return "firstName";
+        }
 
-     // 2. FULL / CUSTOMER / APPLICANT NAME
-     if (List.of(
-             "name", "fullname", "customername",
-             "contactname", "leadname", "legalname",
-             "applicantname", "borrowername",
-             "clientname", "personname",
-             "individualname", "proprietorname",
-             "ownername", "contactperson",
-             "customerfullname", "applicantfullname",
-             "borrowerfullname", "clientfullname"
-     ).contains(key)) {
-         return "fullName";
-     }
+        if (List.of(
+                "lastname", "last", "surname",
+                "familyname", "lname"
+        ).contains(key)) {
+            return "lastName";
+        }
 
-     // 3. FIRST NAME
-     if (List.of(
-             "firstname", "first", "givenname",
-             "fname", "forename"
-     ).contains(key)) {
-         return "firstName";
-     }
+        if (List.of(
+                "mobile", "mobileno", "mobilenumber",
+                "mob", "mobno", "mobnum", "mobnumber",
+                "mobilenum", "phone", "phoneno",
+                "phonenumber", "contactnumber",
+                "contactno", "contactnum",
+                "whatsapp", "whatsappno",
+                "whatsappnumber", "cell", "cellphone",
+                "telephone", "telephoneno",
+                "primarymobile", "primaryphone",
+                "alternatemobile", "alternatenumber"
+        ).contains(key)
+                || key.contains("mobile")
+                || key.contains("phone")
+                || key.contains("telephone")
+                || key.startsWith("mob")
+                || key.endsWith("contactnumber")
+                || key.endsWith("contactno")) {
 
-     // 4. LAST NAME
-     if (List.of(
-             "lastname", "last", "surname",
-             "familyname", "lname"
-     ).contains(key)) {
-         return "lastName";
-     }
+            return "phone";
+        }
 
-     // 5. MOBILE / PHONE / CONTACT NUMBER
-     if (List.of(
-             "mobile", "mobileno", "mobilenumber",
-             "mob", "mobno", "mobnum", "mobnumber",
-             "mobilenum", "phone", "phoneno",
-             "phonenumber", "contactnumber",
-             "contactno", "contactnum",
-             "whatsapp", "whatsappno",
-             "whatsappnumber", "cell", "cellphone",
-             "telephone", "telephoneno",
-             "primarymobile", "primaryphone",
-             "alternatemobile", "alternatenumber"
-     ).contains(key)
-             || key.contains("mobile")
-             || key.contains("phone")
-             || key.contains("telephone")
-             || key.startsWith("mob")
-             || key.endsWith("contactnumber")
-             || key.endsWith("contactno")) {
-         return "phone";
-     }
+        if (List.of(
+                "email", "emailid", "emailaddress",
+                "mail", "mailid", "emailaddr",
+                "primaryemail", "contactemail"
+        ).contains(key) || key.contains("email")) {
+            return "email";
+        }
 
-     // 6. EMAIL
-     if (List.of(
-             "email", "emailid", "emailaddress",
-             "mail", "mailid", "emailaddr",
-             "primaryemail", "contactemail"
-     ).contains(key)
-             || key.contains("email")) {
-         return "email";
-     }
+        if (List.of(
+                "address", "addressline1",
+                "streetaddress", "residentialaddress",
+                "officeaddress", "permanentaddress"
+        ).contains(key)) {
+            return "addressLine1";
+        }
 
-     // 7. ADDRESS
-     if (List.of(
-             "address", "addressline1",
-             "streetaddress", "residentialaddress",
-             "officeaddress", "permanentaddress"
-     ).contains(key)) {
-         return "addressLine1";
-     }
+        if (List.of(
+                "addressline2", "landmark",
+                "area", "locality"
+        ).contains(key)) {
+            return "addressLine2";
+        }
 
-     if (List.of(
-             "addressline2", "landmark",
-             "area", "locality"
-     ).contains(key)) {
-         return "addressLine2";
-     }
+        if (List.of("city", "town").contains(key)) {
+            return "city";
+        }
 
-     // 8. LOCATION
-     if (List.of("city", "town").contains(key)) {
-         return "city";
-     }
+        if (List.of("state", "province").contains(key)) {
+            return "state";
+        }
 
-     if (List.of("state", "province").contains(key)) {
-         return "state";
-     }
+        if (List.of("country", "nation").contains(key)) {
+            return "country";
+        }
 
-     if (List.of("country", "nation").contains(key)) {
-         return "country";
-     }
+        if (List.of(
+                "pincode", "postalcode",
+                "zipcode", "zip", "postcode"
+        ).contains(key)) {
+            return "pincode";
+        }
 
-     if (List.of(
-             "pincode", "postalcode",
-             "zipcode", "zip", "postcode"
-     ).contains(key)) {
-         return "pincode";
-     }
+        if (List.of(
+                "source", "leadsource",
+                "enquirysource", "referencesource"
+        ).contains(key)) {
+            return "source";
+        }
 
-     // 9. LEAD SOURCE
-     if (List.of(
-             "source", "leadsource",
-             "enquirysource", "referencesource"
-     ).contains(key)) {
-         return "source";
-     }
+        if (List.of(
+                "status", "leadstatus",
+                "enquirystatus"
+        ).contains(key)) {
+            return "status";
+        }
 
-     // 10. STATUS
-     if (List.of(
-             "status", "leadstatus",
-             "enquirystatus"
-     ).contains(key)) {
-         return "status";
-     }
+        if (List.of(
+                "description", "remarks", "notes",
+                "comments", "remark", "comment",
+                "requirement", "customerrequirement"
+        ).contains(key)) {
+            return "description";
+        }
 
-     // 11. DESCRIPTION / REMARKS
-     if (List.of(
-             "description", "remarks", "notes",
-             "comments", "remark", "comment",
-             "requirement", "customerrequirement"
-     ).contains(key)) {
-         return "description";
-     }
-
-     // Unknown columns will be preserved in rawData
-     return null;
- }
-
+        return null;
+    }
 
     // ================= READ EXCEL / CSV =================
 
@@ -217,6 +206,7 @@ public class SmartLeadImportServiceImpl implements SmartLeadImportService {
         List<Map<String, String>> rows = new ArrayList<>();
 
         try {
+
             String filename = file.getOriginalFilename();
 
             if (filename == null || !filename.contains(".")) {
@@ -226,6 +216,8 @@ public class SmartLeadImportServiceImpl implements SmartLeadImportService {
             String extension = filename.substring(
                     filename.lastIndexOf('.') + 1)
                     .toLowerCase(Locale.ROOT);
+
+            // ================= CSV =================
 
             if (extension.equals("csv")) {
 
@@ -242,39 +234,49 @@ public class SmartLeadImportServiceImpl implements SmartLeadImportService {
                             .get()
                             .parse(reader)
                 ) {
+
                     List<String> headers = parser.getHeaderNames();
 
                     for (CSVRecord record : parser) {
 
                         Map<String, String> row = new LinkedHashMap<>();
 
-                        for (String header : headers) {
-                            row.put(header,
-                                    record.get(header).trim());
+                        for (int i = 0; i < headers.size(); i++) {
+
+                            String header = headers.get(i);
+
+                            if (header == null || header.isBlank()) {
+                                header = "Column_" + (i + 1);
+                            }
+
+                            String value = i < record.size()
+                                    ? record.get(i)
+                                    : "";
+
+                            row.put(header, value);
                         }
 
-                        if (!row.isEmpty()) {
-                            rows.add(row);
-                        }
+                        rows.add(row);
                     }
                 }
+            }
 
-            } else if (extension.equals("xlsx") ||
-                       extension.equals("xls")) {
+            // ================= EXCEL =================
+
+            else if (extension.equals("xlsx")
+                    || extension.equals("xls")) {
 
                 try (
                     InputStream inputStream = file.getInputStream();
                     Workbook workbook = WorkbookFactory.create(inputStream)
                 ) {
+
                     if (workbook.getNumberOfSheets() == 0) {
                         return rows;
                     }
 
+                    // Currently reads the first worksheet
                     Sheet sheet = workbook.getSheetAt(0);
-
-                    if (sheet.getPhysicalNumberOfRows() == 0) {
-                        return rows;
-                    }
 
                     Row headerRow = sheet.getRow(0);
 
@@ -286,15 +288,19 @@ public class SmartLeadImportServiceImpl implements SmartLeadImportService {
 
                     List<String> headers = new ArrayList<>();
 
-                    for (int i = 0;
-                         i < headerRow.getLastCellNum(); i++) {
+                    for (int i = 0; i < headerRow.getLastCellNum(); i++) {
 
-                        headers.add(formatter.formatCellValue(
-                                headerRow.getCell(i)).trim());
+                        String header = formatter.formatCellValue(
+                                headerRow.getCell(i));
+
+                        if (header == null || header.isBlank()) {
+                            header = "Column_" + (i + 1);
+                        }
+
+                        headers.add(header);
                     }
 
-                    for (int i = 1;
-                         i <= sheet.getLastRowNum(); i++) {
+                    for (int i = 1; i <= sheet.getLastRowNum(); i++) {
 
                         Row dataRow = sheet.getRow(i);
 
@@ -302,36 +308,29 @@ public class SmartLeadImportServiceImpl implements SmartLeadImportService {
                             continue;
                         }
 
-                        Map<String, String> row =
-                                new LinkedHashMap<>();
+                        Map<String, String> row = new LinkedHashMap<>();
 
                         for (int j = 0; j < headers.size(); j++) {
 
-                            String header = headers.get(j);
-
-                            if (header.isEmpty()) {
-                                continue;
-                            }
-
                             String value = formatter.formatCellValue(
-                                    dataRow.getCell(j)).trim();
+                                    dataRow.getCell(j));
 
-                            row.put(header, value);
+                            row.put(headers.get(j), value);
                         }
 
-                        if (row.values().stream()
-                                .anyMatch(value -> !value.isBlank())) {
-                            rows.add(row);
-                        }
+                        // No row validation. Save every physical row.
+                        rows.add(row);
                     }
                 }
+            }
 
-            } else {
+            else {
                 throw new RuntimeException(
                         "Only XLSX, XLS and CSV files are supported.");
             }
 
         } catch (Exception e) {
+
             throw new RuntimeException(
                     "Unable to read import file: " +
                     e.getMessage(), e);
@@ -363,14 +362,14 @@ public class SmartLeadImportServiceImpl implements SmartLeadImportService {
 
             String[] nameParts = fullName.trim().split("\\s+", 2);
 
-            if (mapped.get("firstName") == null ||
-                    mapped.get("firstName").isBlank()) {
+            if (mapped.get("firstName") == null
+                    || mapped.get("firstName").isBlank()) {
                 mapped.put("firstName", nameParts[0]);
             }
 
-            if ((mapped.get("lastName") == null ||
-                    mapped.get("lastName").isBlank()) &&
-                    nameParts.length > 1) {
+            if ((mapped.get("lastName") == null
+                    || mapped.get("lastName").isBlank())
+                    && nameParts.length > 1) {
                 mapped.put("lastName", nameParts[1]);
             }
         }
@@ -378,144 +377,6 @@ public class SmartLeadImportServiceImpl implements SmartLeadImportService {
         mapped.remove("fullName");
 
         return mapped;
-    }
-
-    // ================= UNKNOWN COLUMNS =================
-
-    private Map<String, String> getUnknownColumns(
-            Map<String, String> originalRow) {
-
-        Map<String, String> unknown = new LinkedHashMap<>();
-
-        for (Map.Entry<String, String> entry :
-                originalRow.entrySet()) {
-
-            if (identifyColumn(entry.getKey()) == null) {
-                unknown.put(entry.getKey(), entry.getValue());
-            }
-        }
-
-        return unknown;
-    }
-
-    // ================= VALIDATION =================
-
-    private String validateRow(Map<String, String> mapped) {
-
-    	 return null;
-    
-    }
-
-    // ================= DUPLICATE CHECK =================
-
-    private boolean isDuplicate(
-            Map<String, String> mapped,
-            Set<String> importedEmails,
-            Set<String> importedPhones) {
-
-        String email = mapped.get("email");
-        String phone = mapped.get("phone");
-
-        if (email != null && !email.isBlank()) {
-            email = email.trim().toLowerCase(Locale.ROOT);
-
-            if (leadRepository.existsByEmail(email) ||
-                    importedEmails.contains(email)) {
-                return true;
-            }
-        }
-
-        if (phone != null && !phone.isBlank()) {
-            phone = phone.replaceAll("\\D", "");
-
-            if (leadRepository.existsByPhone(phone) ||
-                    importedPhones.contains(phone)) {
-                return true;
-            }
-        }
-
-        if (email != null && !email.isBlank()) {
-            importedEmails.add(email);
-        }
-
-        if (phone != null && !phone.isBlank()) {
-            importedPhones.add(phone);
-        }
-
-        return false;
-    }
-
-    // ================= PREVIEW IMPORT =================
-
-    @Override
-    public LeadImportPreviewDTO previewImport(MultipartFile file) {
-
-        List<Map<String, String>> originalRows = readFile(file);
-
-        LeadImportPreviewDTO preview = new LeadImportPreviewDTO();
-
-        List<String> headers = new ArrayList<>();
-        Map<String, String> autoMappings = new LinkedHashMap<>();
-        List<String> unknownColumns = new ArrayList<>();
-        List<Map<String, String>> previewRows = new ArrayList<>();
-        List<String> warnings = new ArrayList<>();
-
-
-
-        int validRows = 0;
-        int invalidRows = 0;
-        int duplicateRows = 0;
-        int rowNumber = 1;
-
-        if (!originalRows.isEmpty()) {
-
-            for (String header : originalRows.get(0).keySet()) {
-
-                headers.add(header);
-
-                String field = identifyColumn(header);
-
-                if (field != null) {
-                    autoMappings.put(header, field);
-                } else {
-                    unknownColumns.add(header);
-                }
-            }
-        }
-
-        for (Map<String, String> originalRow : originalRows) {
-
-            rowNumber++;
-
-            Map<String, String> mapped = mapRow(originalRow);
-
-            previewRows.add(originalRow);
-
-            String validationError = validateRow(mapped);
-
-            if (validationError != null) {
-                invalidRows++;
-                warnings.add("Row " + rowNumber + ": " +
-                        validationError);
-                continue;
-            }
-
-   
-
-            validRows++;
-        }
-
-        preview.setHeaders(headers);
-        preview.setAutoMappings(autoMappings);
-        preview.setUnknownColumns(unknownColumns);
-        preview.setPreviewRows(previewRows);
-        preview.setTotalRows(originalRows.size());
-        preview.setValidRows(validRows);
-        preview.setInvalidRows(invalidRows);
-        preview.setDuplicateRows(duplicateRows);
-        preview.setWarnings(warnings);
-
-        return preview;
     }
 
     // ================= SOURCE NORMALIZATION =================
@@ -529,6 +390,7 @@ public class SmartLeadImportServiceImpl implements SmartLeadImportService {
         String source = normalizeHeader(value);
 
         switch (source) {
+
             case "website":
             case "web":
                 return LeadSource.WEBSITE;
@@ -559,6 +421,59 @@ public class SmartLeadImportServiceImpl implements SmartLeadImportService {
         }
     }
 
+    // ================= PREVIEW IMPORT =================
+
+
+@Override
+public LeadImportPreviewDTO previewImport(MultipartFile file) {
+
+    List<Map<String, String>> originalRows = readFile(file);
+
+    LeadImportPreviewDTO preview = new LeadImportPreviewDTO();
+
+    List<String> headers = new ArrayList<>();
+    Map<String, String> autoMappings = new LinkedHashMap<>();
+    List<String> unknownColumns = new ArrayList<>();
+
+    if (!originalRows.isEmpty()) {
+
+        for (String header : originalRows.get(0).keySet()) {
+
+            headers.add(header);
+
+            String field = identifyColumn(header);
+
+            if (field != null) {
+                autoMappings.put(header, field);
+            } else {
+                unknownColumns.add(header);
+            }
+        }
+    }
+
+    // Preview only first 20 rows
+    List<Map<String, String>> previewRows =
+            originalRows.stream()
+                    .limit(20)
+                    .toList();
+
+    preview.setHeaders(headers);
+    preview.setAutoMappings(autoMappings);
+    preview.setUnknownColumns(unknownColumns);
+    preview.setPreviewRows(previewRows);
+
+    // Actual total rows
+    preview.setTotalRows(originalRows.size());
+
+    // No validation
+    preview.setValidRows(originalRows.size());
+    preview.setInvalidRows(0);
+    preview.setDuplicateRows(0);
+    preview.setWarnings(new ArrayList<>());
+
+    return preview;
+}
+
     // ================= SAVE IMPORT =================
 
     @Override
@@ -569,85 +484,124 @@ public class SmartLeadImportServiceImpl implements SmartLeadImportService {
 
         LeadImportResultDTO result = new LeadImportResultDTO();
 
-        Set<String> importedEmails = new HashSet<>();
-        Set<String> importedPhones = new HashSet<>();
-
         List<String> errors = new ArrayList<>();
 
         int savedCount = 0;
-        int duplicateCount = 0;
         int failedCount = 0;
         int rowNumber = 1;
+
+        // ================= CREATE BATCH =================
+
+        LeadImportBatch batch = new LeadImportBatch();
+
+        batch.setFileName(file.getOriginalFilename());
+        batch.setTotalRows(originalRows.size());
+
+        List<String> headers = originalRows.isEmpty()
+                ? new ArrayList<>()
+                : new ArrayList<>(originalRows.get(0).keySet());
+
+        try {
+
+            batch.setHeadersJson(
+                    objectMapper.writeValueAsString(headers)
+            );
+
+        } catch (Exception e) {
+
+            throw new RuntimeException(
+                    "Unable to save Excel headers.", e);
+        }
+
+        batch = batchRepository.save(batch);
+
+        // ================= SAVE ALL ROWS =================
 
         for (Map<String, String> originalRow : originalRows) {
 
             rowNumber++;
 
             try {
+
                 Map<String, String> mapped = mapRow(originalRow);
-
-                String validationError = validateRow(mapped);
-
-                if (validationError != null) {
-                    failedCount++;
-                    errors.add("Row " + rowNumber + ": " +
-                            validationError);
-                    continue;
-                }
-
-                if (isDuplicate(mapped, importedEmails, importedPhones)) {
-                    duplicateCount++;
-                    errors.add("Row " + rowNumber +
-                            ": Duplicate lead");
-                    continue;
-                }
 
                 Lead lead = new Lead();
 
+                // Automatically mapped fields
                 lead.setFirstName(mapped.get("firstName"));
                 lead.setLastName(mapped.get("lastName"));
                 lead.setEmail(mapped.get("email"));
                 lead.setPhone(mapped.get("phone"));
 
                 lead.setCompanyName(mapped.get("companyName"));
+
                 lead.setAddressLine1(mapped.get("addressLine1"));
                 lead.setAddressLine2(mapped.get("addressLine2"));
+
                 lead.setCity(mapped.get("city"));
                 lead.setState(mapped.get("state"));
                 lead.setCountry(mapped.get("country"));
                 lead.setPincode(mapped.get("pincode"));
+
                 lead.setDescription(mapped.get("description"));
 
-                lead.setSource(getLeadSource(mapped.get("source")));
+                lead.setSource(
+                        getLeadSource(mapped.get("source"))
+                );
 
+                // Default CRM status
                 lead.setStatus(LeadStatus.NEW);
+
+                // Mark as RAW imported lead
                 lead.setRaw(true);
                 lead.setImportStatus(LeadImportStatus.RAW);
 
-                Map<String, String> unknownColumns =
-                        getUnknownColumns(originalRow);
+                // Connect with uploaded batch
+                lead.setImportBatch(batch);
 
+                // Store complete original row
                 lead.setRawData(
-                        objectMapper.writeValueAsString(unknownColumns));
+                        objectMapper.writeValueAsString(originalRow)
+                );
 
                 leadRepository.save(lead);
 
                 savedCount++;
 
             } catch (Exception e) {
+
                 failedCount++;
-                errors.add("Row " + rowNumber + ": " +
-                        e.getMessage());
+
+                errors.add(
+                        "Row " + rowNumber + ": " + e.getMessage()
+                );
             }
         }
 
+        // ================= UPDATE BATCH =================
+
+        batch.setSavedCount(savedCount);
+
+        batchRepository.save(batch);
+
+        // ================= RESPONSE =================
+
         result.setTotalRows(originalRows.size());
         result.setSavedCount(savedCount);
-        result.setDuplicateCount(duplicateCount);
+
+        // No duplicate checking
+        result.setDuplicateCount(0);
+
         result.setFailedCount(failedCount);
         result.setSkippedCount(0);
+
         result.setErrors(errors);
-        result.setMessage("Raw lead import completed.");
+
+        result.setBatchId(batch.getId());
+
+        result.setMessage(
+                "Import completed. " + savedCount + " rows saved successfully."
+        );
 
         return result;
     }
