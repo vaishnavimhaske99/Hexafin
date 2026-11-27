@@ -1,3 +1,4 @@
+
 package com.example.demo.dto;
 
 import java.util.List;
@@ -6,10 +7,21 @@ import java.util.Map;
 public class LeadImportPreviewDTO {
 
     private List<String> headers;
+
     private Map<String, String> autoMappings;
+
     private List<String> unknownColumns;
+
     private List<Map<String, String>> previewRows;
+
     private int totalRows;
+
+    private int validRows;
+
+    private int invalidRows;
+
+    private int duplicateRows;
+
     private List<String> warnings;
 
     public List<String> getHeaders() {
@@ -50,6 +62,30 @@ public class LeadImportPreviewDTO {
 
     public void setTotalRows(int totalRows) {
         this.totalRows = totalRows;
+    }
+
+    public int getValidRows() {
+        return validRows;
+    }
+
+    public void setValidRows(int validRows) {
+        this.validRows = validRows;
+    }
+
+    public int getInvalidRows() {
+        return invalidRows;
+    }
+
+    public void setInvalidRows(int invalidRows) {
+        this.invalidRows = invalidRows;
+    }
+
+    public int getDuplicateRows() {
+        return duplicateRows;
+    }
+
+    public void setDuplicateRows(int duplicateRows) {
+        this.duplicateRows = duplicateRows;
     }
 
     public List<String> getWarnings() {

@@ -17,7 +17,7 @@ import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 import com.example.demo.security.JwtAuthenticationFilter;
-
+import com.fasterxml.jackson.databind.ObjectMapper;
 @Configuration
 @EnableMethodSecurity(prePostEnabled = true)  // 🔥 prePostEnabled
 public class SecurityConfig {
@@ -32,7 +32,10 @@ public class SecurityConfig {
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
     }
-
+    @Bean
+    public ObjectMapper objectMapper() {
+        return new ObjectMapper();
+    }
     // CORS Configuration
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {

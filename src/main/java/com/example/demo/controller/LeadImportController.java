@@ -7,21 +7,21 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import com.example.demo.dto.LeadImportPreviewDTO;
-import com.example.demo.service.LeadImportService;
+import com.example.demo.dto.LeadImportResultDTO;
+import com.example.demo.service.SmartLeadImportService;
 
 @RestController
 @RequestMapping("/api/leads/import")
 public class LeadImportController {
 
-    private final LeadImportService leadImportService;
+    private final SmartLeadImportService smartLeadImportService;
 
-    public LeadImportController(LeadImportService leadImportService) {
-        this.leadImportService = leadImportService;
+    public LeadImportController(
+            SmartLeadImportService smartLeadImportService) {
+        this.smartLeadImportService = smartLeadImportService;
     }
 
-    // =========================================
-    // PREVIEW EXCEL / CSV FILE
-    // =========================================
+    // SMART IMPORT PREVIEW
     @PostMapping(
         value = "/preview",
         consumes = MediaType.MULTIPART_FORM_DATA_VALUE
@@ -29,24 +29,21 @@ public class LeadImportController {
     public ResponseEntity<LeadImportPreviewDTO> previewImport(
             @RequestParam("file") MultipartFile file) {
 
-        LeadImportPreviewDTO preview =
-            leadImportService.previewFile(file);
-
-        return ResponseEntity.ok(preview);
+        return ResponseEntity.ok(
+            smartLeadImportService.previewImport(file)
+        );
     }
 
-    // =========================================
-    // SAVE EXCEL / CSV DATA AS RAW LEADS
-    // =========================================
+    // SMART IMPORT SAVE RAW
     @PostMapping(
         value = "/save-raw",
         consumes = MediaType.MULTIPART_FORM_DATA_VALUE
     )
-    public ResponseEntity<?> saveRawLeads(
+    public ResponseEntity<LeadImportResultDTO> saveRawLeads(
             @RequestParam("file") MultipartFile file) {
 
         return ResponseEntity.ok(
-            leadImportService.saveRawLeads(file)
+            smartLeadImportService.saveImport(file)
         );
     }
 }
