@@ -8,6 +8,7 @@ import java.util.Map;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -44,6 +45,9 @@ import jakarta.validation.Valid;
 @RequestMapping("/api/leads")
 public class LeadController {
 
+    private static final int DEFAULT_PAGE_SIZE = 25;
+    private static final int MAX_PAGE_SIZE = 100;
+
     private final LeadService leadService;
     private final LeadRepository leadRepository;
     private final LeadImportBatchRepository batchRepository;
@@ -62,12 +66,40 @@ public class LeadController {
     }
 
     // =========================================
+    // PAGINATION VALIDATION
+    // =========================================
+
+    private Pageable createPageable(int page, int size) {
+
+        if (page < 0 || size < 1 || size > MAX_PAGE_SIZE) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Invalid page or size. Page must be >= 0 and size must be between 1 and 100."
+            );
+        }
+
+        return PageRequest.of(
+                page,
+                size,
+                Sort.by(Sort.Direction.DESC, "id")
+        );
+    }
+
+    // =========================================
     // ASSIGN LEAD - REQUEST BODY
     // =========================================
+
     @PutMapping("/{leadId}/assign")
     public ResponseEntity<?> assignLead(
             @PathVariable Long leadId,
             @RequestBody AssignLeadRequestDTO request) {
+
+        if (request == null || request.getAssignedToId() == null) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Assigned user ID is required"
+            );
+        }
 
         return ResponseEntity.ok(
                 leadService.assignLead(
@@ -80,17 +112,24 @@ public class LeadController {
     // =========================================
     // GET LEADS ASSIGNED TO SELECTED USER
     // =========================================
+
     @GetMapping("/assigned-to/{userId}")
     @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'TEAM_LEAD', 'SALES')")
-    public List<LeadResponseDTO> getLeadsAssignedToUser(
-            @PathVariable Long userId) {
+    public Page<LeadResponseDTO> getLeadsAssignedToUser(
+            @PathVariable Long userId,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "25") int size) {
 
-        return leadService.getLeadsByAssignedTo(userId);
+        return leadService.getLeadsByAssignedTo(
+                userId,
+                createPageable(page, size)
+        );
     }
 
     // =========================================
     // GET LOGGED-IN USER
     // =========================================
+
     private User getLoggedInUser() {
 
         Authentication authentication =
@@ -121,8 +160,8 @@ public class LeadController {
 
     // =========================================
     // CREATE LEAD
-    // TEMPORARY PUBLIC FOR LOCAL TESTING
     // =========================================
+
     @PostMapping
     public LeadResponseDTO createLead(
             @Valid @RequestBody LeadRequestDTO request) {
@@ -131,18 +170,24 @@ public class LeadController {
     }
 
     // =========================================
-    // GET ALL LEADS
+    // GET ALL LEADS - PAGINATED
     // =========================================
+
     @GetMapping
     @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'TEAM_LEAD', 'SALES')")
-    public List<LeadResponseDTO> getAllLeads() {
+    public Page<LeadResponseDTO> getAllLeads(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "25") int size) {
 
-        return leadService.getAllLeads();
+        return leadService.getAllLeads(
+                createPageable(page, size)
+        );
     }
 
     // =========================================
     // GET LEAD BY ID
     // =========================================
+
     @GetMapping("/{id}")
     @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'TEAM_LEAD', 'SALES')")
     public LeadResponseDTO getLeadById(@PathVariable Long id) {
@@ -153,6 +198,7 @@ public class LeadController {
     // =========================================
     // UPDATE LEAD
     // =========================================
+
     @PutMapping("/{id}")
     @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'SALES')")
     public LeadResponseDTO updateLead(
@@ -165,6 +211,7 @@ public class LeadController {
     // =========================================
     // DELETE LEAD - ADMIN ONLY
     // =========================================
+
     @DeleteMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")
     public void deleteLead(@PathVariable Long id) {
@@ -175,43 +222,71 @@ public class LeadController {
     // =========================================
     // GET MY LEADS - SALES ONLY
     // =========================================
+
     @GetMapping("/my-leads")
     @PreAuthorize("hasRole('SALES')")
-    public List<LeadResponseDTO> getMyLeads() {
+    public Page<LeadResponseDTO> getMyLeads(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "25") int size) {
 
         User user = getLoggedInUser();
 
-        return leadService.getMyLeads(user.getId());
+        return leadService.getMyLeads(
+                user.getId(),
+                createPageable(page, size)
+        );
     }
 
     // =========================================
     // GET LEADS BY SALES USER
     // =========================================
+
     @GetMapping("/sales-user/{userId}")
     @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'TEAM_LEAD')")
-    public List<LeadResponseDTO> getLeadsBySalesUser(
-            @PathVariable Long userId) {
+    public Page<LeadResponseDTO> getLeadsBySalesUser(
+            @PathVariable Long userId,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "25") int size) {
 
-        return leadService.getLeadsBySalesUser(userId);
+        return leadService.getLeadsBySalesUser(
+                userId,
+                createPageable(page, size)
+        );
     }
 
     // =========================================
     // GET TEAM LEADS
     // =========================================
+
     @GetMapping("/team-leads")
     @PreAuthorize("hasAnyRole('TEAM_LEAD', 'MANAGER')")
-    public List<LeadResponseDTO> getTeamLeads(
-            Authentication authentication) {
+    public Page<LeadResponseDTO> getTeamLeads(
+            Authentication authentication,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "25") int size) {
+
+        if (authentication == null
+                || !(authentication.getPrincipal() instanceof User)) {
+
+            throw new ResponseStatusException(
+                    HttpStatus.UNAUTHORIZED,
+                    "Authenticated user details are unavailable"
+            );
+        }
 
         User loggedInUser = (User) authentication.getPrincipal();
 
-        return leadService.getTeamLeads(loggedInUser.getId());
+        return leadService.getTeamLeads(
+                loggedInUser.getId(),
+                createPageable(page, size)
+        );
     }
 
     // =========================================
     // ASSIGN / REASSIGN LEAD
     // ADMIN, MANAGER, TEAM_LEAD
     // =========================================
+
     @PutMapping("/{leadId}/assign/{assignedToId}")
     @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'TEAM_LEAD')")
     public LeadResponseDTO assignLead(
@@ -222,29 +297,41 @@ public class LeadController {
     }
 
     // =========================================
-    // RAW LEADS - GET ALL
+    // RAW LEADS - PAGINATED
     // =========================================
+
     @GetMapping("/raw")
     @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'TEAM_LEAD')")
-    public List<LeadResponseDTO> getRawLeads() {
+    public Page<LeadResponseDTO> getRawLeads(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "25") int size) {
 
-        return leadService.getRawLeads();
+        return leadService.getRawLeads(
+                createPageable(page, size)
+        );
     }
 
     // =========================================
     // RAW LEADS - FILTER BY IMPORT STATUS
     // =========================================
+
     @GetMapping("/raw/status/{importStatus}")
     @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'TEAM_LEAD')")
-    public List<LeadResponseDTO> getRawLeadsByImportStatus(
-            @PathVariable LeadImportStatus importStatus) {
+    public Page<LeadResponseDTO> getRawLeadsByImportStatus(
+            @PathVariable LeadImportStatus importStatus,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "25") int size) {
 
-        return leadService.getRawLeadsByImportStatus(importStatus);
+        return leadService.getRawLeadsByImportStatus(
+                importStatus,
+                createPageable(page, size)
+        );
     }
 
     // =========================================
     // RAW LEADS - COUNT
     // =========================================
+
     @GetMapping("/raw/count")
     @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'TEAM_LEAD')")
     public long countRawLeads() {
@@ -255,6 +342,7 @@ public class LeadController {
     // =========================================
     // GET BATCH-WISE RAW LEADS WITH PAGINATION
     // =========================================
+
     @GetMapping("/import-batches/{batchId}/leads")
     @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'TEAM_LEAD')")
     public Map<String, Object> getBatchLeads(
@@ -262,7 +350,7 @@ public class LeadController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "25") int size) {
 
-        if (page < 0 || size < 1 || size > 100) {
+        if (page < 0 || size < 1 || size > MAX_PAGE_SIZE) {
             throw new ResponseStatusException(
                     HttpStatus.BAD_REQUEST,
                     "Invalid page or size"
@@ -275,7 +363,7 @@ public class LeadController {
                         "Import batch not found"
                 ));
 
-        Pageable pageable = PageRequest.of(page, size);
+        Pageable pageable = createPageable(page, size);
 
         Page<Lead> leadPage =
                 leadRepository.findByImportBatch_Id(batchId, pageable);
@@ -307,13 +395,15 @@ public class LeadController {
                                     ? lead.getAssignedTo().getId()
                                     : null
                     );
+
                     row.put(
-                    	    "assignedToName",
-                    	    lead.getAssignedTo() != null
-                    	        ? lead.getAssignedTo().getFirstName() + " "
-                    	            + lead.getAssignedTo().getLastName()
-                    	        : null
-                    	);
+                            "assignedToName",
+                            lead.getAssignedTo() != null
+                                    ? lead.getAssignedTo().getFirstName() + " "
+                                            + lead.getAssignedTo().getLastName()
+                                    : null
+                    );
+
                     return row;
                 })
                 .toList();
